@@ -1,0 +1,250 @@
+document.write('<script src="/js/reservation/common_adscript.js?rnd=20240516"></script>');
+const reservation = function() {
+    try{reservation_adscript(roomInfo.rmname);}catch(e){}
+
+    if(isWhiteSpaceCheck($("#memberHp").val()) == '') {
+        alertLayer("연락처를 확인하세요.");
+        return false;
+    }
+
+    if(!isPhoneCheck($("#memberHp").val())) {
+        alertLayer("연락처를 확인하세요.");
+        return false;
+    }
+
+    const  gst = $("#gst option:selected").attr('gst')
+    if (!checkNullOrEmptyValue(gst)) {
+        alertLayer('예약인원을 선택해주세요.');
+        return false;
+    }
+    var gstName = $("#guestName").val();
+    var gstPhone = $("#guestPhone").val();
+    if(secretMemYn == 'Y'){
+        if(!gstName.trim()){
+            alertLayer("투숙객명을 입력해주세요.")
+            return;
+        }
+        if(!gstPhone.trim()){
+            alertLayer("투숙객 연락처를 입력해주세요.")
+            return;
+        }
+    }else{
+        if(!gstPhone.trim()){
+            gstPhone = $("#memberHp").val();
+        }
+    }
+    $("form[name='frmReservation']").find("input[name='gstName']").val(gstName);
+    $("form[name='frmReservation']").find("input[name='gstPhone']").val(gstPhone);
+
+    // if(!feelUtil.Util.email_check($("#memberEmail").val())){
+    //     alertLayer("이메일 형식이 알맞지 않습니다");
+    //     return false;
+    // }
+
+    var gstNo =$("#gst option:selected").attr('gst');
+    if($("#reservation-check").prop("checked")) {
+        if($("#captchaYn").val()=='N'){
+            alertLayer("보안인증코드를 확인하세요.");
+            return false;
+        }
+        // 이메일, 핸드폰 유효성 검사 해야함
+        const memNo = roomInfo.memNo;
+        var apiUrl = '';
+        var reservationData = {};
+        if(roomInfo.prYn=='Y'){
+            apiUrl = "/reservation/cove/ajax/only-room-reservation/hana";
+            reservationData = {
+                bsns: "25",
+                memNo: memNo,
+                arr: roomInfo.arr,
+                dep: roomInfo.dep,
+                gst: gstNo,
+                rmtype: roomInfo.rmtype,
+                rmname: roomInfo.rmname,
+                bedtype: roomInfo.bedtype,
+                rate: $("form[name='frmReservation']").find("input[name='rate']").val(),
+                //email: $("#memberEmail").val(),
+                email: member.cmEmail,
+                tel: $("#memberHp").val(),
+                hp: $("#memberHp").val(),
+                captchaKey: $("#captchaKey").val(),
+                roomRateCd : roomInfo.roomRateCd,
+                stockCode: $("form[name='frmReservation']").find("input[name='stockCode']").val(),
+                rms : 1,
+                etType : '11',
+                gstName : gstName,
+                gstPhone : gstPhone
+            }
+        }else{
+            apiUrl ='/reservation/cove/ajax/room-reservation';
+            reservationData = {
+                bsns: "25",
+                memNo: memNo,
+                arr: roomInfo.arr,
+                dep: roomInfo.dep,
+                gst: gstNo,
+                rmtype: roomInfo.rmtype,
+                rmname: roomInfo.rmname,
+                bedtype: roomInfo.bedtype,
+                // email: $("#memberEmail").val() ,
+                email: member.cmEmail,
+                tel: $("#memberHp").val(),
+                hp: $("#memberHp").val(),
+                rate: $("form[name='frmReservation']").find("input[name='rate']").val(),
+                conYn: roomInfo.conYn,
+                conRmType1 : roomInfo.conRmType1,
+                conRmType2 :roomInfo.conRmType2,
+                roomRateCd : roomInfo.roomRateCd,
+                nig : roomInfo.nig,
+                captchaKey: $("#captchaKey").val(),
+                stockCode: $("form[name='frmReservation']").find("input[name='stockCode']").val(),
+                rms : 1,
+                etType : '11',
+                gstName : gstName,
+                gstPhone : gstPhone
+            };
+        }
+        console.log(JSON.stringify(reservationData))
+        // var rtnMsg = restrictMsg("I","25",member.cmDcod,"",roomInfo.arr,"RR");
+        var memberYn = 'Y';
+        if(member.cmDcod=='G'){
+            memberYn = 'N';
+        }
+        // var dataObj = {
+        //     mode : "I",
+        //     bsns : "25",
+        //     memYn : memberYn,
+        //     rsvnNo : "",
+        //     arr : roomInfo.arr,
+        //     rsvnType : "RR",
+        //     memNo : memNo,
+        //     guestNo : member.cmNo
+        // }
+        var restrictData = {
+            mode : "I",
+            bsns : '25',
+            memYn : memberYn,
+            rsvnNo : '',
+            arr : moment(roomInfo.arr).format('YYYYMMDD'),
+            rsvnType : 'RR',
+            memNo : roomInfo.memNo,
+            guestNo : member.cmNo
+        }
+        $.ajax({
+            url: "/ko/reservation/ajax/newRestrictMsg",
+            method: "post",
+            type: "json",
+            contentType: "application/json",
+            data: JSON.stringify(restrictData),
+            success: function (result) {
+                console.log(result)
+                if(result.code == '200'){
+                    if(result.message){
+                        confirmLayer(result.message,function(){
+                            $.ajax({
+                                url: apiUrl,
+                                method: "post",
+                                type: "json",
+                                contentType: "application/json",
+                                data: JSON.stringify(reservationData),
+                                success: function (result) {
+                                    // 예약 성공
+                                    if(result.code === 200) {
+                                        $("form[name='frmReservation']").find("input[name='reservationId']").val(result.data.reservationId);
+                                        $("form[name='frmReservation']").find("input[name='rsvnNo']").val(result.data.rsvnNo);
+                                        $("form[name='frmReservation']").find("input[name='rsvnNo2']").val(result.data.rsvnNo2);
+                                        $("form[name='frmReservation']").find("input[name='gst']").val(result.data.gst);
+                                        $("form[name='frmReservation']").find("input[name='hp']").val(result.data.hp);
+                                        $("form[name='frmReservation']").find("input[name='email']").val(result.data.email);
+                                        $("form[name='frmReservation']").find("input[name='caller']").val(result.data.caller);
+                                        $("form[name='frmReservation']").find("input[name='guestNo']").val(result.data.guestNo);
+                                        $("form[name='frmReservation']").find("input[name='caller']").val(result.data.caller);
+                                        $("form[name='frmReservation']").find("input[name='guestNo']").val(result.data.guestNo);
+                                        $("form[name='frmReservation']").find("input[name='conRmType1']").val(result.data.conRmType1);
+                                        $("form[name='frmReservation']").find("input[name='conRmType2']").val(result.data.conRmType2);
+                                        globalLoaderDark.start();
+                                        $("form[name='frmReservation']").submit();
+                                    }else {
+                                        // alertLayer(result.message);
+                                        /*보안인증 초기화*/
+                                        if(result.code === 1001){
+                                            $("#captchaYn").val("N");
+                                            $("#captchaKey").val("");
+                                            $("#captchaText").val("");
+                                            getImage();
+                                        }
+                                        globalLoaderDark.stop();
+                                        alertLayer(result.message)
+                                    }
+                                },
+                                error: function(){globalLoaderDark.stop();},
+                                complete: function(){}
+
+                            });
+                        })
+                    }else{
+                        alertLayer('오류가 발생되었습니다.')
+                        return;
+                    }
+                }
+            }
+        });
+
+
+    } else {
+        alertLayer("이용약관에 동의해주세요.");
+        return false;
+    }
+};
+
+const reservationCancel = function() {
+    location.href = "/" + locale + "/reservation/cove/room-search?memNo=" +roomInfo.memNo+"&arr="+roomInfo.arr+"&dep="+roomInfo.dep;
+};
+
+const isPhoneCheck = function(value) {
+    var patternPhone = /01[016789][^0][0-9]{3,4}[0-9]{3,4}/;
+    return patternPhone.test(value.replace(/-/gi, ''));
+}
+const isWhiteSpaceCheck = function(value) {
+    return value.replace(/ /gi, "");
+}
+const gstChange = function(gst) {
+    const no = gst.slice(0,-1);
+
+    const reservationData = {
+        bsns: '25',
+        memNo: roomInfo.memNo,
+        arr: moment(roomInfo.arr).format('YYYYMMDD'),
+        dep: moment(roomInfo.dep).format('YYYYMMDD'),
+        nig: roomInfo.nig,
+        gst: no,
+        rmtype: roomInfo.rmtype,
+        roomRateCd: roomInfo.roomRateCd
+    };
+
+    $.ajax({
+        url: "/reservation/cove/ajax/roomPrice",
+        method: "post",
+        type: "json",
+        contentType: "application/json",
+        data: JSON.stringify(reservationData),
+        success: function (result) {
+            // 성공
+            var rate = result.data.rate;
+            if(roomInfo.conYn =="Y"){
+                rate = String(rate*2);
+            }
+            $("form[name='frmReservation']").find("input[name='rate']").val(result.data.rate);
+            $("form[name='frmReservation']").find("input[name='gst']").val(no);
+            $(".rate").html( rate.replace(/\B(?=(\d{3})+(?!\d))/g, ',')+"원")
+        }
+    });
+};
+$(document).ready(function(){
+    try{reservation_view_item(gaItem)}catch (e) {};
+})
+$(document).ready(gstChange('1명'))
+    .on("change", "#gst", function() {gstChange($(this).val());})
+    .on("click", "#reservation", reservation)
+    .on("click", "#reservationCancel", reservationCancel)
+;

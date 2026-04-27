@@ -1,0 +1,23 @@
+function fn_evt_eternaljourney_cpdown() {
+    getIsLogin(function(result) {
+        if (result == false) {
+            confirmLayer("쿠폰 다운로드는 로그인 후 가능합니다.<br>로그인 하시겠습니까?",function(){ location.href = '/ko/login'; });
+            return false;
+        } else {
+            $.ajax({
+                url:'/ko/eventPage/202408/ejrimclub_cpdown?evt_chk=' + evt_chk,
+                method: "POST",
+                async:true,
+                cache:false,
+                type: "json",
+                contentType: "application/json",
+                success: function (result) {
+                    alertLayer(result.RESULT_MSG);
+                },
+                error: function (e) {
+                    alertLayer("일시적인 오류로 쿠폰발급이 실패하였습니다.<br>잠시 후 다시 시도해 주세요.")
+                }
+            });
+        }
+    });
+}

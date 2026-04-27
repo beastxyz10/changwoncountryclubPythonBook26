@@ -1,0 +1,2339 @@
+var device = checkDevice();
+var isApp = checkApp();
+var currentPlatform = '';
+var detailPlatform = '';
+var pushPlatform = '';
+var keyicontouch = 0;
+var appNow = new Date();
+var appversion;
+/*ios event listener*/
+window.addEventListener("message", (res) => {
+    responseMessage(JSON.parse(res.data));
+});
+/*android event listener*/
+document.addEventListener("message", (res) => {
+    responseMessage(JSON.parse(res.data));
+});
+
+$(document).on('click','#modal-smartkey [data-modal="close"],#modal-smartkey-copy [data-modal="close"]', function() {
+    //모바일 키 UI변경 시 체크사항 - 레이어 닫기 버튼 3가지(장막, x버튼, 닫기 버튼) 클릭시 실행
+    //모바일 키 공유하기, 받기 시에도 이벤트 발생
+    //$(this).parents('.modal-bottom').attr('style','');
+    reqDataApp('requestStopAuthForMobileKey');
+    clearInterval(timer_qrcode); // 타이머 해제
+});
+
+const reqGps = (gubun) => {
+    if(gubun == null) {
+        gubun = "";
+    }
+    reqDataApp('REQ_GPS',gubun);
+}
+
+const reqLocation = (gubun) => {
+    if(gubun == null) {
+        gubun = "";
+    }
+    reqDataApp('REQ_LOCATION',gubun);
+}
+
+const reqMobileKeyCopy = (keyno) => {
+    $('#modal-smartkey .backdrop').click(); //모바일키 레이어 종료
+    reqDataApp('REQ_MOBILE_KEY_COPY', keyno);
+}
+
+const reqMobileKeyGet = () => {
+    $('#modal-smartkey .backdrop').click(); //모바일키 레이어 종료
+    reqDataApp('REQ_GET_MOBILE_KEY');
+}
+
+const reqFace = (custNo) => {
+    const data = {
+        "custno" : custNo
+    };
+    reqDataApp('REQ_USER_PIC',data, true);
+};
+
+const reqDataApp = (interfaceName, data, isjsonparse) => {
+    if(isApp == true) {
+        try {
+            if(device == 'and') {
+                if(data == null) {
+                    window.android[interfaceName]();
+                } else {
+                    if(isjsonparse == null) {
+                        window.android[interfaceName](data);
+                    } else {
+                        window.android[interfaceName](JSON.stringify(data));
+                    }
+                }
+
+            } else if(device == 'ios') {
+                try {
+
+                    if (window.webkit != undefined) {
+                        if (data == null) {
+                            window.webkit.messageHandlers[interfaceName].postMessage("");
+                        } else {
+                            if (isjsonparse == null) {
+                                window.webkit.messageHandlers[interfaceName].postMessage(data);
+                            } else {
+                                window.webkit.messageHandlers[interfaceName].postMessage(JSON.stringify(data));
+                            }
+                        }
+                    }
+
+                } catch(error) {
+                    alert(error);
+                }
+
+            }
+        } catch(error) {
+            //$("#spin_modal_overlay").remove();
+        }
+    } else {
+        confirmLayer('아난티 앱에서만 가능합니다.<br> 스토어로 이동하시겠습니까?', function() { location.href = 'https://ananti.kr/gate/page?goStore=Y&redirectUrl=https://ananti.kr' });
+    }
+}
+
+const responseMessage = (data) => {
+
+    // alert(data.type);
+    // console.log(data.data)
+
+    if (data.type === "RESP_GPS") { // GPS 응답
+        globalLoaderDark.start();
+        checkGPS(data.data.latitude, data.data.longitude, data.data.gubun);
+        //checkGPS('37.62007016408199', '127.4828243711813', data.data.gubun);
+    } else if (data.type === "RESP_USER_PIC") { // 회원 사진 응답
+        checkFace(data.data.custno, data.data.pic);
+    } else if (data.type === "REQ_APP_VERSION"){
+        checkAppVersion(data.data.version);
+    } else if (data.type === "RESP_MEMBERSHIP") {   // 폰 흔들기 액션
+
+        //캐싱적용 되면 아래 로그인 체크는 제대로 동작하지 않음
+        // if(isLogin_appCheck == false) {
+        //     location.href = '/ko/login';
+        //     return;
+        // }
+
+        getIsLogin(function(result) {
+            if (result == false) {
+                confirmLayer("멤버십 카드는 로그인 후 호출 가능합니다. 로그인 하시겠습니까?",function(){ location.href = '/ko/login'; });
+                return false;
+            } else {
+                //globalLoaderDark.start();
+                // reqDataApp('setSecurity', true);
+                // reqDataApp('requestChangeScreenBrightness',true);
+                // reqDataApp('showModalWebView','https://ananti.kr/ko/appMain/memberShipCard?Gubun=Page');
+                location.href = 'https://me.ananti.kr?panel=barcode';
+            }
+        });
+
+        //fn_membershipcard();
+    } else if(data.type === 'hasMobileKey') {   //모바일키 여부 체크
+        if(data.data.count > 0) {
+            //키 레이어 호출
+            //앱 키 호출
+            reqDataApp('REQ_RUN_MOBILE_KEY');
+        } else {
+            //예약건 확인 후 키 자동발급, 없으면 키 공유 레이어 호출
+            fn_getCheckinList();
+        }
+    } else if(data.type === 'RESP_RUN_MOBILE_KEY') { //카드키 요청
+        makeMobileKey_Layer(data.data.keys);
+    } else if(data.type === 'RESP_MOBILE_KEY_COPY') { //카드키 공유
+        console.log(data.data);
+        makeMobileKey_QrLayer(data.data);
+    } else if(data.type === 'RESP_SHOW_MODAL_WEBVIEW') { //membership용 웹뷰 닫을때
+        //globalLoaderDark.stop();
+        reqDataApp('setSecurity',false);
+        reqDataApp('requestChangeScreenBrightness',false);
+        //alert('WEBVIEW 닫음 호출');
+    } else if(data.type === 'RESP_SHOW_SUB_WEBVIEW') {
+        //alert('SUBWEBVIEW 닫음 호출');
+    } else if(data.type === 'RESP_PUSH_COUNT') {
+        if(data.data.push_data === true) {
+            $('#alarmStatus').show();
+        } else {
+            $('#alarmStatus').hide();
+        }
+    } else if(data.type === 'RESP_APP_VERSION') {
+        alert(data.data);
+    } else if(data.type === 'RESP_APP_INT_VERSION') {
+        //alert(data.data);
+        //appversion = data.data;
+    } else if (data.type === "RESP_LOCATION") { // GPS 응답
+        checkLocation(data.data.siteLocation, data.data.gubun);
+    }
+}
+
+function mem_test() {
+    getIsLogin(function(result) {
+        if (result == false) {
+            confirmLayer("멤버십 카드는 로그인 후 호출 가능합니다. 로그인 하시겠습니까?",function(){ location.href = '/ko/login'; });
+            return false;
+        } else {
+            reqDataApp('requestChangeScreenBrightness',true);
+            reqDataApp('showModalWebView','https://ananti.kr/ko/appMain/memberShipCard?Gubun=Page');
+        }
+    });
+}
+
+const checkGPS = (latitude, longitude, gubun) => {
+
+/*    getIsLogin(function(result) { //로그인 로직 삭제 예정--
+        if (result == true) {*/
+            var btn_gubun, siteCode;
+
+            if(gubun != null && gubun != "") {
+                var gubunArray = gubun.split(',');
+                if(gubun.length > 1) {
+                    siteCode = gubunArray[1];
+                }
+
+                btn_gubun = gubunArray[0];
+            } else {
+                btn_gubun = "";
+                siteCode = "";
+            }
+
+            if(latitude == 0 && longitude == 0) {
+                // confirmLayer("GPS 활성화 요청");
+                alertLayer('GPS를 활성화 해주세요.');
+                return false;
+            }
+
+            // latitude = '35.2022224163';
+            // longitude = '129.22900564008503';
+
+            //코드 37.62671953658062, 127.4826042131682
+            //코브 35.2022224163 129.22900564008503
+            //청담 37.52602474699536, 127.04221135364237
+            //남해 34.77687810458383, 127.85208568610412
+            //강남 37.5150976 127.031188 BOffice
+            //제주 33.517762 126.7364387
+
+            $.ajax({
+                url: "/api/v1/check-in/available/gps",
+                data: {
+                    "latitude" : latitude,
+                    "longitude" : longitude,
+                    "siteCode" : siteCode,
+                    "gpsGubunBtn" : btn_gubun
+                },
+                method : "GET",
+                beforeSend: function() {},
+                success : (res) => {
+                    globalLoaderDark.stop();
+                    if(btn_gubun === 'btnActiveCheck') {
+                        // if (res.data) {
+                        //     if(res.message === 'GANM') {
+                        //         getIsUserCheck(function(result) {
+                        //             if (result === false) {
+                        //                 res.message = "";
+                        //             }
+                        //
+                        //             showfloating(res);
+                        //         });
+                        //         return false;
+                        //     }
+                        // }
+
+                        showfloating(res);
+                    } else {
+                        if (res.data) {
+                            currentPlatform = res.message;
+                            if(currentPlatform === 'COVE') {
+                                detailPlatform = $('.appUtils__nav ul.appUtils__list').data('plf');
+                                if(detailPlatform === null || detailPlatform === undefined) {
+                                    detailPlatform = pushPlatform;
+                                }
+                            } else {
+                                detailPlatform = currentPlatform;
+                            }
+                            if(btn_gubun === 'btn_checkin') { //체크인
+                                // if(detailPlatform == 'CHORD' && checkDevice == 'ios') {
+                                //     alertLayer('IOS 는 차기 앱 업데이트 후 사용이 가능합니다. \n 이용에 불편을 드려서 죄송합니다.');
+                                //     return false;
+                                // }
+
+                                getMemDcod(function(result) {
+                                    if (result.code === 200) {
+                                        if(result.message === 'G'
+                                            || detailPlatform === 'BUSAN'
+                                            || detailPlatform === 'GANM'
+                                            || detailPlatform === 'ATBUSAN') {
+                                            $('#checkin_plf_facechk').hide();
+                                            $("#modal-checkin [id^='checkin-reve-']").hide();
+                                        }
+                                        hasReservation(detailPlatform);
+                                    } else {
+                                        location.href = '/ko/login';
+                                    }
+                                });
+
+                            } else if(btn_gubun === 'btn_checkout') { //체크아웃
+                                fn_checkout(detailPlatform);
+                            } else if(btn_gubun === 'btn_mobilekey') { //모바일키
+                                //모바일키 체크
+                                reqDataApp('hasMobileKey');
+                                savePageLog(detailPlatform,'MOBILEKEY','CLICK','','','','','','');
+                            } else if(btn_gubun === 'btn_smartorder') { //스마트오더
+                                if(res.message==='CHORD'){
+                                    reqDataApp('showSubWebView','https://uchef.co.kr/salon');
+                                }else if(res.message==='COVE'){
+                                    if(detailPlatform === 'COVE') {
+                                        confirmLayer("<span class='text-primary'>코브 펜트하우스</span> 투숙객 기준 주문이 가능합니다, 진행하시겠습니까?",function(){
+                                            reqDataApp('showSubWebView','https://uchef.co.kr/lamer');
+                                        });
+                                    } else if (detailPlatform === 'BUSAN') {
+                                        confirmLayer("<span class='text-primary'>아난티 앳 부산 코브</span> 투숙객 기준 주문이 가능합니다, 진행하시겠습니까?",function(){
+                                            reqDataApp('showSubWebView','https://uchef.co.kr/anantihilton');
+                                        });
+                                    } else if (detailPlatform === 'ATBUSAN') {
+                                        confirmLayer("<span class='text-primary'>아난티 앳 부산 빌라쥬</span> 투숙객 기준 주문이 가능합니다, 진행하시겠습니까?",function(){
+                                            reqDataApp('showSubWebView','https://uchef.co.kr/leblanc?p=000007658');
+                                        });
+                                    } else if (detailPlatform === 'VILLAGE') {
+                                        confirmLayer("<span class='text-primary'>빌라쥬 드 아난티</span> 투숙객 기준 주문이 가능합니다, 진행하시겠습니까?",function(){
+                                            reqDataApp('showSubWebView','https://uchef.co.kr/leblanc?p=000007660');
+                                        });
+                                    }
+                                }else if(res.message==='NAMHAE'){
+                                    reqDataApp('showSubWebView','https://uchef.co.kr/apoint');
+                                }
+                            } else if(btn_gubun === 'platformcheck') {
+                                currentPlatform = res.message;
+                                detailPlatform = currentPlatform;
+                            } else {
+                                if(res.message !== 'CHORD') {
+                                    alertLayer('아난티 코드에서만 사용 가능한 기능입니다.');
+                                }
+                            }
+                        } else {
+                            //alert(res.message);
+                            alertLayer('사용할 수 없는 지역입니다.');
+                            //alertLayer('사용할 수 없는 지역입니다.');
+                        }
+                    }
+                },
+                error : (err) => {
+                    globalLoaderDark.stop();
+                    alertLayer('잠시 후 다시 시도해 주세요.');
+                }
+            });
+/*        } else {
+            location.href='/ko/login';
+        }
+    });*/
+}
+
+const checkLocation = (siteLocation, gubun) => {
+    var btn_gubun, siteCode;
+
+    if(gubun != null && gubun != "") {
+        var gubunArray = gubun.split(',');
+        if(gubun.length > 1) {
+            siteCode = gubunArray[1];
+        }
+
+        btn_gubun = gubunArray[0];
+    } else {
+        btn_gubun = "";
+        siteCode = "";
+    }
+
+    // if(latitude == 0 && longitude == 0) {
+    //     // confirmLayer("GPS 활성화 요청");
+    //     alertLayer('GPS를 활성화 해주세요.');
+    //     return false;
+    // }
+
+    // latitude = '35.2022224163';
+    // longitude = '129.22900564008503';
+
+    //코드 37.62671953658062, 127.4826042131682
+    //코브 35.2022224163 129.22900564008503
+    //청담 37.52602474699536, 127.04221135364237
+    //남해 34.77687810458383, 127.85208568610412
+    //강남 37.5150976 127.031188 BOffice
+    //제주 33.517762 126.7364387
+
+    if(btn_gubun === 'btnActiveCheck') {
+        var isfloating = true;
+        $('#appUtils_nav').children().remove();
+
+        if (siteLocation != '') {
+            currentPlatform = siteLocation;
+            detailPlatform = currentPlatform;
+
+            if(siteLocation === 'CHORD') {
+                $('#appUtils').addClass('appUtils7');
+                $('#appUtils_nav').html($('#apputils_basic').prop('outerHTML'));
+            } else if(siteLocation === 'GANM') {
+                $('#appUtils').addClass('appUtils7');
+                $('#appUtils_nav').html($('#apputils_ganm').prop('outerHTML'));
+            } else if(siteLocation === 'JEJU') {
+                $('#appUtils_nav').html($('#apputils_jeju').prop('outerHTML'));
+            } else if(siteLocation === 'COVE') {
+                $('.js-fab').toggleClass('is-expanded');
+                isfloating = false;
+            } else if (siteLocation === 'NAMHAE') {
+                $('#apputils_covenamhae [name="btn_findroad"]').parent().remove();
+                $('#apputils_covenamhae [name="btn_Fnb"]').parent().remove();
+
+                $('#appUtils_nav').html($('#apputils_covenamhae').prop('outerHTML'));
+            } else {
+                $('#appUtils_nav').html($('#apputils_basic').prop('outerHTML'));
+                $('#btn_checkout,#btn_checkin,#btn_mobilekey').find('i').removeClass('icon-primary icon-gray').addClass('icon-gray').parent().attr('disabled',true).parent().addClass('coming');
+            }
+        }
+        else {
+            $('#appUtils_nav').html($('#apputils_basic').prop('outerHTML'));
+            $('#btn_checkout,#btn_checkin,#btn_mobilekey').find('i').removeClass('icon-primary icon-gray').addClass('icon-gray').parent().attr('disabled',true);
+        }
+
+        if(isfloating) {
+            appUtilsOpen();  //앱 플로팅 버튼 활성
+        }
+    } else {
+        if (siteLocation != '') {
+            currentPlatform = siteLocation;
+            if(currentPlatform === 'COVE') {
+                detailPlatform = $('.appUtils__nav ul.appUtils__list').data('plf');
+                if(detailPlatform === null || detailPlatform === undefined) {
+                    detailPlatform = pushPlatform;
+                }
+            } else {
+                detailPlatform = currentPlatform;
+            }
+            if(btn_gubun === 'btn_checkin') { //체크인
+                // if(detailPlatform == 'CHORD' && checkDevice == 'ios') {
+                //     alertLayer('IOS 는 차기 앱 업데이트 후 사용이 가능합니다. \n 이용에 불편을 드려서 죄송합니다.');
+                //     return false;
+                // }
+
+                getMemDcod(function(result) {
+                    if (result.code === 200) {
+                        if(result.message === 'G'
+                            || detailPlatform === 'BUSAN'
+                            || detailPlatform === 'GANM'
+                            || detailPlatform === 'ATBUSAN') {
+                            $('#checkin_plf_facechk').hide();
+                            $("#modal-checkin [id^='checkin-reve-']").hide();
+                        }
+                        hasReservation(detailPlatform);
+                    } else {
+                        location.href = '/ko/login';
+                    }
+                });
+
+            } else if(btn_gubun === 'btn_checkout') { //체크아웃
+                fn_checkout(detailPlatform);
+            } else if(btn_gubun === 'btn_mobilekey') { //모바일키
+                //모바일키 체크
+                reqDataApp('hasMobileKey');
+                savePageLog(detailPlatform,'MOBILEKEY','CLICK','','','','','','');
+            } else if(btn_gubun === 'btn_smartorder') { //스마트오더
+                if(siteLocation==='CHORD'){
+                    reqDataApp('showSubWebView','https://uchef.co.kr/salon');
+                }else if(siteLocation==='COVE'){
+                    if(detailPlatform === 'COVE') {
+                        confirmLayer("<span class='text-primary'>코브 펜트하우스</span> 투숙객 기준 주문이 가능합니다, 진행하시겠습니까?",function(){
+                            reqDataApp('showSubWebView','https://uchef.co.kr/lamer');
+                        });
+                    } else if (detailPlatform === 'BUSAN') {
+                        confirmLayer("<span class='text-primary'>아난티 앳 부산 코브</span> 투숙객 기준 주문이 가능합니다, 진행하시겠습니까?",function(){
+                            reqDataApp('showSubWebView','https://uchef.co.kr/anantihilton');
+                        });
+                    } else if (detailPlatform === 'ATBUSAN') {
+                        confirmLayer("<span class='text-primary'>아난티 앳 부산 빌라쥬</span> 투숙객 기준 주문이 가능합니다, 진행하시겠습니까?",function(){
+                            reqDataApp('showSubWebView','https://uchef.co.kr/leblanc?p=000007658');
+                        });
+                    } else if (detailPlatform === 'VILLAGE') {
+                        confirmLayer("<span class='text-primary'>빌라쥬 드 아난티</span> 투숙객 기준 주문이 가능합니다, 진행하시겠습니까?",function(){
+                            reqDataApp('showSubWebView','https://uchef.co.kr/leblanc?p=000007660');
+                        });
+                    }
+                }else if(siteLocation==='NAMHAE'){
+                    reqDataApp('showSubWebView','https://uchef.co.kr/apoint');
+                }
+            } else if(btn_gubun === 'platformcheck') {
+                currentPlatform = siteLocation;
+                detailPlatform = currentPlatform;
+            } else {
+                if(siteLocation !== 'CHORD') {
+                    alertLayer('아난티 코드에서만 사용 가능한 기능입니다.');
+                }
+            }
+        } else {
+            //alert(siteCode);
+            alertLayer('사용할 수 없는 지역입니다.');
+            //alertLayer('사용할 수 없는 지역입니다.');
+        }
+    }
+}
+
+var keyLayer = null;
+const makeMobileKey_Layer = (keylist) => {
+
+    var keyParamList = {
+        "keyList" : JSON.stringify(keylist)
+    }
+
+    $.ajax({
+        url: "/api/v1/mobilekeyList",
+        type:'GET',
+        async:true,
+        data:keyParamList,
+        dataType: "html",
+        success: function (result) {
+            if(result != null) {
+                $('#modal-smartkey .modal-body .swiper-wrapper').html(result);
+                if(keyLayer != null) {
+                    keyLayer.destroy();
+                }
+                var keySlideEl = document.querySelector('#modal-smartkey .swiper-container');
+                var keyFractionEl = document.querySelector('#modal-smartkey .swiper-container .slide-fraction');
+                var keyFractionEls = keySlideEl.querySelectorAll('.swiper-slide'),
+                    keyFractionLen = keyFractionEls.length;
+                var keyFractionTotalEl = keyFractionEl.querySelector('.slide-fraction__length');
+                var keyFractionIndexEl = keyFractionEl.querySelector('.slide-fraction__active');
+                keyFractionTotalEl.innerText = keyFractionLen;
+
+                keyLayer = new Swiper('#modal-smartkey .swiper-container', {
+                    pagination: {
+                        el: '#modal-smartkey .slide-scrollbar',
+                        type: 'progressbar'
+                    },
+                    on: {
+                        init: function() {
+                            keyFractionIndexEl.innerText = this.realIndex+1;
+                        },
+                        transitionEnd: function () {
+                            keyFractionIndexEl.innerText = this.realIndex+1;
+                            if($('#modal-smartkey .swiper-container .swiper-slide').length != this.realIndex+1) {
+                                reqDataApp('requestAuthForMobileKey', $(this)[0].slides[this.realIndex].dataset.keyid);
+                            } else {
+                                reqDataApp('requestStopAuthForMobileKey');
+                            }
+                        }
+                    }
+                });
+
+                if(detailPlatform == 'GANM') {
+                    $('a[name="mobilekey_telno"]').text('문의: 02-2190-4000').attr('href','tel:02-2190-4000')
+                } else if(detailPlatform == 'VILLAGE') {
+                    $('a[name="mobilekey_telno"]').text('문의: 051-662-7000').attr('href','tel:051-662-7000')
+                } else if(detailPlatform == 'ATBUSAN') {
+                    $('a[name="mobilekey_telno"]').text('문의: 051-662-7100').attr('href','tel:051-662-7100')
+                }
+
+
+                modal('#modal-smartkey');
+                if(keylist != null && keylist.length > 0) {
+                    reqDataApp('requestAuthForMobileKey', keylist[0].keyId);  //첫번째 키 호출
+                }
+            }
+        },
+        error : function (err) {
+            $("#spin_modal_overlay").remove();
+            console.log(err);
+        }
+    });
+}
+
+var timer_qrcode;
+var timer_time;
+const makeMobileKey_QrLayer = (key) => {
+    var keyParamList = {
+        "key" : JSON.stringify(key)
+    }
+
+    $.ajax({
+        url: "/api/v1/mobilekey_qrcode",
+        type:'POST',
+        async:true,
+        contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+        data:keyParamList,
+        dataType: "html",
+        success: function (result) {
+            if(result != null && result != "") {
+                $('#smartkey-copy-info').html(result);
+
+                timer_time = $('#modal-smartkey-copy #qrcode_timer').data('time');
+                timer_qrcode = setInterval(qr_count_timer, 1000);
+
+                modal('#modal-smartkey-copy');
+            }
+        },
+        error : function (err) {
+            $("#spin_modal_overlay").remove();
+            console.log(err);
+        }
+    });
+}
+
+function qr_count_timer() {
+    // 1초씩 카운트
+    el = 'qrcode_timer';
+    var timermsg;
+    var min = '0' + Math.floor(timer_time / 60);
+    var sec = '0' + Math.floor(timer_time % 60);
+    var timermsg = min + ':' + sec.slice(-2);
+    $('#' + el).html(timermsg);
+
+    timer_time--;
+    if (timer_time < 0) {
+        // 시간 종료
+        clearInterval(timer_qrcode); // 타이머 해제
+        alertLayer('유효시간이 만료되었습니다.<br>모바일 키를 다시 공유해 주세요.');
+    }
+}
+
+function gettempmobilekey() {
+    var keystr = '[{"keyId":"1","checkin":"201002212230","checkout":"202601010000","reserveNo":"12345678","title1":"아난티 코드 테라스 하우스","title2":"A동 403호"},{"keyId":"2","checkin":"201002212230","checkout":"202601010000","reserveNo":"12345678","title1":"아난티 코드 테라스 하우스2","title2":"A동 404호"},{"keyId":"3","checkin":"201002212230","checkout":"202601010000","reserveNo":"12345679","title1":"아난티 코드 테라스 하우스3","title2":"A동 404호"}]';
+    var keyparse = JSON.parse(keystr);
+
+    makeMobileKey_Layer(keyparse);
+}
+
+function gettempmobilekey_qr() {
+    var keystr = '{"key":{"basic":"DB46208FFAE66E871E6DD72D6F4CEB2BDE5CFB667461A56E657BA532","ext1":"e1f623770f0dd47456ccc0b579424d8d9842514c849ac68d28084eee2b5718c158366785bdeafff4970d3960d8e2a57f","ext2":"e15420350ba9c245f1c6f7f27c6350dbadef8d85722704cba386201fc85d3a997b5ff8b59e73d8bf1b74914ad748a5e1","room":"201","checkin":"201002212230","checkout":"202601010000","reserveNo":"12345678","title1":"아난티 코드 테라스 하우스","title2":"A동 403호","keyId":1,"expire":1638254740371},"qr_key":"data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6eAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAwqSURBVHic7Z1JkiO5DkR/fuv7Xzl7FbWgNSYHOJTZe7tUMEiEqggnBkk/v7+/v/8DgP/k/7cNAHgZNgiAAxsEwIENAuDABgFwYIMAOLBBABzYIAAObBAABzYIgAMbBMCBDQLgwAYBcGCDADiwQQAc2CAADmwQAAc2CIADGwTAgQ0C4MAGAXBggwA4/LNz8p+fH+k+65uIovmibzD67v/GrfOtr1t/R/Oqr0dk30/1OSL7rPWr70u0bpWd31yFggA4bFWQD9WDWB4+e7+lFJZnjcZZ61h2ZJXKet163ur7kH1+a/7s+zD1nLsVpwIKAuBwREE+qmfYyMNn6cYWVSVTlSOav3rWz3ri7PucfR+qMY9F9f/LDlAQAIejClIl60GyZ2TLw2azY9nYI7Ize1/0/NXrkZJG4yyi+f5mUBAAh6cVZCpf3/Vs2WxNVcGqChc9R1XhVqrrRfdV138RFATA4aiC7KocZ7M4XQ+Zta9bia7GBNnsUvTc1WyYqtTV7NpNUBAAhyMK0j17ZusYu/5en6PqobPZs6qyde1V7VGff6pT4SQoCIDDVgXpniGr2adqJblaF+l6zumzv2pv9rq63otduSooCIDDE58Hmcq3Z7tgq5XkqaxMVVlUj9yNXVYie6uxSXZetYduEhQEwOHnd+M2VD3mev9Kd5y6ftWjqd28kb27YiVrnDXPup6qJGov2glQEACHrQryZ5FiV+iH2otVtSerJKr93YpzNmvUrSdkFberaNUs2I3Y4wMFAXA4qiArXQ+odo1OK0H1vsieqezftLKq81bnr7LzvzAKAuBwpA6i9vqo2ZFq7JKtZKs9VNVsWnRfRPUs312/qwy7Ys0JUBAAhydiEGv8dK/Qum419qnGLtX7VKWx1ulWpKt1EnW+9XoWKukAlzlaSV9fj9id5VIr/Nb604qn5v/VmCCbleuuE60/9e8zAQoC4HDk8yCqB1uJPGk2yxStk/Wk63qqx1V7wKx5o9ctoiziqcr8Ot6ad6qO4oGCADhcyWJNZ00sps7M1bP5ypQnVM/gajZrdw/adI/XDlAQAIcjCtKlmj+vZj/UOkQ36xMx7Vm72aFu9qhaJ6nGaDtAQQAcrijI1JlXrU9UK+3R69b9kb1T9Zdo3cjOKY889X5Z82XvmwQFAXB44ltNPtT6Q3aeqH6i2lN9TtWzV4k8c1XZsooT/W3ZU42FqjGdAgoC4HDl90G6WZSskmSzPqqH7FbCowp1N0tUVSqr0yB6/qn60vT1CVAQAIcrvw9ied5qT870+tY4tfJcVaIVVQGi61nPPx3rreOyvVjVzotJUBAAhyOfB1lRPcJ0D1E0r0W3TmLNZ9kT2dmt6Kv1J7UetF7f9e86AQoC4PDEd/NOeYruGdqab0oxpirjWXvU9z2az0JV7i7EIACXuPLdvFMV4mp3a9Zzdu1a51Xtq/ZIVZWsW3/pZtmm6iU7QUEAHK5U0leyZ/NsZXWqgl61r1pfydZ9qvZ13081Ronsieo1lh03slcfKAiAw5Vu3m7ldJ2nup6a1elmc6r1B6tXK/vcU71i1rpZe9Yer6q9akw2AQoC4PBXfS9WdtyUx8yuqypP9XmjeVWPvzKddczOW40xT4CCADgcjUG6Xavr+GyluJvN6vZW7a7/rFTXyWahqvdl7cnae1I5PlAQAIej32oync9WK8fVv7PzVqlmj9TYIFvvUOdTK/5TvWP0YgFc4q/oxaqaOK0s1XWznq6raN3er/W+9braq1VVwOms4iQoCIDDE9+LVe0eVT191rOrHju7bjSuWu9QlSJat6uo1bpPtT5CDAJwmSufSf/YfRaemrfqeaevr2R7rKx5ulmzU9k2YhCAx7n6K7dqhXbas1SzTNZ63V4jyy7rftXzW+uo47PzdGOG7klCAQUBcDgag6j5bdWjRfZE60bzTNcbspXj7PxZpuoUp+o3J7JXHygIgMPVz6RPVa6r11WliK5b66n1hakuVzXWy9ZdqvWN9bm7CkYMAnCJJ37lVq0DWHR7hbLsVsBuDKIqxzpOjUGydlo88F8TBQHweOJXbtWzZjV7NVWPqc6n1kPUyrj1evd5Lbr1k4gbsccHCgLgcKSbd7onKep2VV+35rfuy2ZjoufYVfdZiWKE7HxqDJKNRaLs2clDDwoC4PDEd/NWPeZUBbob+0TzR1jjqlmfrKJl14nsqtpjza/a1+1xq4CCADhc+YWpj25Pznqfxa76RDdrdao3TH2fIzums14v1kdQEACHq58HWanGDhbTvU6qh+uelbuVa7XyrirMVJZJreDvAAUBcLjyeZDs+PW+as9WlmoWTa1IZ+eN7qvOY1GNTVR71ter3Kigf6AgAA5Hfx9k6sy73h/RXberLFFlvVq5t+yb9rDWv1+3jlTN+hGDADzKk3UQi6mepW5MsdqT9dzdyr16pu9W5rPjdmUZT8YcKygIgMMTvw+idrVa81t0PZ61jlpJj8bvypZFVOsQK10lrdq3ExQEwOFqHaSbrVI9kZqPt1BjivX+9fpUHcGiq1Rd5T/dmaCAggA4XPmd9OrZ2RqfrSNE9kX3Ve2z/o7qAdHr6/VuNm4q9rNQFTQ77kQsgoIAOFz5THqkLFlPO92DtF7P2hfZmbW3W5GO1ovGZe/v1rfU95cYBOAxjnwmfTpbVb1/yiN1FcIaF60zXY/Y9RzVXrbsOPWkMAEKAuBwtRerS7ZOoJ75q3ao9YLq+Kn6SDW2sO5bUetBkZ03erNQEACHI3UQ6++ux41ej9ax1rXGZddTe6+i8dmsVjVrZNnRrZhPKWE1azYJCgLgcKQO8qFmRdQsSDWPn/WEVU9Wrfirz289V7UeZc2XXT963bJDjYl2goIAOBz5PEjXY6tZkOqjqdmr6P7u2X2qZ6qq6DfO/P9F92TRAQUBcDgag3yoFdNs9mYq+6R63GhdtYdpKuuX7emqZgetdbr1DmIQgEc5GoN8VLNK6v3r+F1n126+X1Wuav0kO7/q+avrVunGYAooCIDDk9+LlfVgU6ZP9VCp81vc6omKFKWrGF2lJYsF8AhXvhfro5r1scap+fxonFq3WV/PosZm1SyUGrtE19XOhd1K2gEFAXA4qiB/FhWzI+v9U3n2XTHF9Nnfep51vmos0K2wV+eZUhhiEIDLXFGQP4sPebws3d6sbtZoVwzRVeTpebLz/w1KgoIAOFxVkD9GiNmlaL5uRTg735RnztqxjtuVBVLfx+r82fGWXTtBQQAcnvw8SDTPyvQZVa3gn64fTN2/jv/ojrPumxpPLxbAZY72YmVft+iepSOmeoG6iqnOv1KNUax1svN2OxYiVOXqgIIAODzxzYrTnnKqAh1R9czdHq9qrBExpZiW3dY80euRnes6xCAAl7gSg6zXV9Q8+NTZPbJnV+9WtF73jN9VZOt5rPus6xZTWbZJUBAAhyO/D/KxeohuRbxbWZ/2tNb1dVzV7ug5rPui+aeUdp1nSgGqvVs7QEEAHK5U0tfXLdQerOx8Wbpv0a66jzU+Wr9aMVezaN0sVWTPCVAQAIcjMUj3LJx9XZ1PrX+o2aasokz1sGU9e7fXayWrXNXXs+tPgIIAOFz5ZsWVqWyStW43dsmins2nsnBdup0Eap2matfJWAQFAXB44hOFFtkzqHW9Oo96xrboxjaqJ1YVVe3eVelWzolBAC5z5fdBIqzKrOpRoqxN1t5qhVqNodTsT9beaiyUzbpV/52y61h2EoMAXOaJOshH5JGyZ9Wsh1Qr29brVq9V5IG7WZ9ujKDeX73erV8RgwA8xpVu3hVVGarrqZXiar4+q4Rq7BGRtTf776Fm8bKKV41VqYMAPMJRBZlCzZJUe5+m6hjrfNmeqNXubt0lG8tVs29dZVd7y06AggA4/FUKMlW5XefL5vkje7IeVc3OWetmYxdViabqI9F81vxZO3eAggA4XP1Wk2i8mvfvZoNUz9itgE//U0x1+X5kFXdaES2ogwBc5oiCVJk+o6/js9enu0mrPVDW/as9qkJa81Tfn2xsY9mn3ncCFATA4enPgwDcBgUBcGCDADiwQQAc2CAADmwQAAc2CIADGwTAgQ0C4MAGAXBggwA4sEEAHNggAA5sEAAHNgiAAxsEwIENAuDABgFwYIMAOLBBABzYIAAObBAABzYIgMO/HwBy3fF8+T0AAAAASUVORK5CYII="}';
+    var keyparse = JSON.parse(keystr);
+
+    makeMobileKey_QrLayer(keyparse);
+}
+function ckInRoomInfoDraw(roomInfoList,modalDiv){
+    $("#reservationList").children().remove();
+
+    if(roomInfoList.length > 0) {
+        let roomCount = 0;
+        // $("#roomInfo").append('<h1 class="heading">객실 선택</h1>')
+        $.each(roomInfoList, function(idx, item) {
+            let $roomInfo = $("#ckInDefaultRoom").clone();
+            $roomInfo.removeAttr("id");
+            $roomInfo.removeClass("hidden");
+            $roomInfo.find(".ckRoomName").text(item.bsnsDesc+' '+item.roomDesc);
+            $roomInfo.find(".ckRoomDesc").text('이용일자 : '+item.resArr+'\n'+'예약번호 : '+item.resFolio);
+            $roomInfo.find(".ckRoomInfo").data("room-data", item);
+
+            // if (checkNullOrEmptyValue(item.roomImg)) {
+            //     $roomInfo.find('.roomImg').attr('src', item.roomImg);
+            // } else {
+            //     $roomInfo.find('.roomImg').attr('src', '/images/temp/bnr_3.png');
+            // }
+
+            $("#reservationList").append($roomInfo);
+            roomCount++;
+        });
+        modal(modalDiv);
+        if(roomCount === 0) {
+            alertLayer("이용 가능 객실이 없습니다.");
+        }
+        savePageLog("CHORD",'CHECKIN','CLICK','','','','','','');
+    }else {
+        alertLayer("이용 가능 객실이 없습니다.");
+    }
+}
+function ckInRoomInfoDraw_V1(roomInfoList,modalDiv){
+    $("#reservationList").children().remove();
+
+    if(roomInfoList.length > 0) {
+        let roomCount = 0;
+        $.each(roomInfoList, function(idx, item) {
+            let $roomInfo = $("#ckInDefaultRoom").clone();
+            var time_split = item.res_Checkin_Time.split(':');
+
+            $roomInfo.removeAttr("id");
+            $roomInfo.removeClass("hidden");
+            $roomInfo.find(".ckRoomName").html(item.res_Desc+' '+item.rm_Desc + '<br>' +
+                '<span className="text-weight-normal ckRoomDesc">' + item.res_Arr.replace(/(\d{4})(\d{2})(\d{2})/g, '$2월$3일') + ' ~ ' + item.res_Dep.replace(/(\d{4})(\d{2})(\d{2})/g, '$2월$3일') +
+                ' (' + time_split[0] + '시 체크인)' +
+                '<br>' +
+                '예약번호 : ' + item.res_Folio + '</span>');
+
+            $roomInfo.find(".ckRoomInfo").data("room-data", item);
+
+            // if (checkNullOrEmptyValue(item.roomImg)) {
+            //     $roomInfo.find('.roomImg').attr('src', item.roomImg);
+            // } else {
+            //     $roomInfo.find('.roomImg').attr('src', '/images/temp/bnr_3.png');
+            // }
+
+            $("#reservationList").append($roomInfo);
+            roomCount++;
+        });
+        modal(modalDiv);
+        if(roomCount === 0) {
+            alertLayer("이용 가능 객실이 없습니다.");
+        }
+        savePageLog("CHORD",'CHECKIN','CLICK','','','','','','');
+    }else {
+        alertLayer("이용 가능 객실이 없습니다.");
+    }
+}
+function ckInRoomInfoDraw_platform(roomInfoList,modalDiv){
+    $("#reservationList").children().remove();
+
+    if(roomInfoList.length > 0) {
+        let roomCount = 0;
+        // $("#roomInfo").append('<h1 class="heading">객실 선택</h1>')
+        $.each(roomInfoList, function(idx, item) {
+            let $roomInfo = $("#ckInDefaultRoom").clone();
+            $roomInfo.removeAttr("id");
+            $roomInfo.removeClass("hidden");
+
+            var time_split = item.res_Checkin_Time.split(':');
+
+            $roomInfo.find(".ckRoomName").html(item.res_Desc+' '+item.rm_Desc + '<br>' +
+                '<span className="text-weight-normal ckRoomDesc">' + item.res_Arr.replace(/(\d{4})(\d{2})(\d{2})/g, '$2월$3일') + ' ~ ' + item.res_Dep.replace(/(\d{4})(\d{2})(\d{2})/g, '$2월$3일') +
+                ' (' + time_split[0] + '시 체크인)' +
+                '<br>' +
+                '예약번호 : ' + item.res_Folio + '</span>');
+            $roomInfo.find(".ckRoomInfo").data("room-data", item);
+
+            // if (checkNullOrEmptyValue(item.roomImg)) {
+            //     $roomInfo.find('.roomImg').attr('src', item.roomImg);
+            // } else {
+            //     $roomInfo.find('.roomImg').attr('src', '/images/temp/bnr_3.png');
+            // }
+
+            $("#reservationList").append($roomInfo);
+            roomCount++;
+        });
+        modal(modalDiv);
+        if(roomCount === 0) {
+            alertLayer("이용 가능 객실이 없습니다.");
+        }
+
+        savePageLog(detailPlatform,'CHECKIN','CLICK','','','','','','');
+    }else {
+        alertLayer("이용 가능 객실이 없습니다.");
+    }
+}
+function ckOutRoomInfoDraw(roomInfoList,modalDiv){
+    $("#reservationOutList").children().remove();
+
+    if(roomInfoList.length > 0) {
+        let roomCount = 0;
+        // $("#roomInfo").append('<h1 class="heading">객실 선택</h1>')
+        $.each(roomInfoList, function(idx, item) {
+            let $roomInfo = $("#ckInDefaultRoom").clone();
+            $roomInfo.removeAttr("id");
+            $roomInfo.removeClass("hidden");
+            $roomInfo.find(".ckRoomName").html(item.res_Desc+' '+item.rm_Desc + '<br>' +
+                '<span className="text-weight-normal ckRoomDesc">이용일자 : ' + item.res_Arr.replace(/(\d{4})(\d{2})(\d{2})/g, '$2월$3일') + ' ~ ' + item.res_Dep.replace(/(\d{4})(\d{2})(\d{2})/g, '$2월$3일') + '<br>' +
+                '예약번호 : ' + item.res_Folio + '</span>');
+            $roomInfo.find(".ckRoomInfo").data("room-data", item);
+
+            $("#reservationOutList").append($roomInfo);
+            roomCount++;
+        });
+
+        if(detailPlatform != 'CHORD') {
+            $('#modal-checkout div[name="checkout_notice1"]').remove();
+            $('#modal-checkout div[name="checkout_notice2"]').removeClass('margin-t-10 margin-b-25').addClass('margin-t-20');
+            $('#modal-checkout div[name="checkout_notice3"]').show();
+            $('#modal-checkout div[name="checkout_minibar"]').removeClass('d-none');
+        }
+
+        modal(modalDiv);
+        if(roomCount === 0) {
+            alertLayer("체크아웃 가능 객실이 없습니다.");
+        } else {
+            savePageLog(detailPlatform,'CHECKOUT','CLICK','','','','','','');
+        }
+
+    }else {
+        alertLayer("체크아웃 가능 객실이 없습니다.");
+    }
+}
+
+const checkFace = (custNo, pic) => {
+
+    if(custNo === '') {
+        alertLayer("안면인식 과정에서 문제가 발생하였습니다.");
+        return false;
+    }
+
+    $.ajax({
+        url: "/api/v1/check-in/available/face",
+        data: JSON.stringify({
+            "custNo" : custNo,
+            "encoded": pic
+        }),
+        contentType: "application/json",
+        method: "POST",
+        success: (res) => {
+            const data = res.data;
+            if (data.status === 'Y') {
+                modal(document.getElementById("checkinNext"))
+            } else {
+                alertLayer("회원 본인 확인이 되지않았습니다. 다시 시도하시거나, 프론트로 방문해주세요.");
+            }
+        },
+        error: (err) => {
+            alertLayer("안면인식 과정에서 문제가 발생하였습니다.");
+        }
+    });
+}
+const hasReservation = (sitecode) => {
+
+    var url = "";
+    if(sitecode === 'CHORD') {
+        //url = '/check-in/getCheckInRoom';
+        url = '/check-in/getCheckInRoom_platform?sitecode=' + sitecode;
+    } else {
+        url = '/check-in/getCheckInRoom_platform?sitecode=' + sitecode;
+    }
+    $.ajax({
+        url: url,
+        method: "post",
+        type: "json",
+        contentType: "application/json",
+        success: function (result) {
+            if(result.code===200) {
+                console.log(result.data)
+                if (result.data.length > 0) {
+                    if(sitecode === 'CHORD') {
+                        //ckInRoomInfoDraw(result.data, document.getElementById('btn_checkin'));
+                        ckInRoomInfoDraw_V1(result.data, document.getElementById('btn_checkin'));
+                    } else {
+                        if(sitecode === 'GANM') {
+                            alertLayer("체크인은 프런트로 방문해 주세요.");
+                            return false;
+                        }
+
+                        if(sitecode === 'GANM') {
+                            $('#checkin_plf_telno').text('문의: 02-2190-4000').attr('href','tel:02-2190-4000');
+                        } else if (sitecode === 'BUSAN') {
+                            $('#checkin_plf_telno').text('문의: 051-509-1111').attr('href','tel:051-509-1111');
+                        } else if(sitecode === 'VILLAGE') {
+                            $('#checkin_plf_telno').text('문의: 051-662-7000').attr('href','tel:051-662-7000');
+                        } else if(sitecode === 'ATBUSAN') {
+                            $('#checkin_plf_telno').text('문의: 051-662-7100').attr('href','tel:051-662-7100');
+                        }
+
+                        ckInRoomInfoDraw_platform(result.data, document.getElementById('btn_checkin'));
+                    }
+                } else {
+                    alertLayer("체크인 할 객실이 존재하지 않습니다.");
+                }
+            } else {
+                alertLayer("다시 시도해 주세요.");
+            }
+        }
+    });
+
+    // $.ajax({
+    //     url : "/api/v1/check-in/available/reservation",
+    //     method : "GET",
+    //     success: (res) => {
+    //         if (res.data == 1) {
+    //             //체크인 가능한 예약건이 있으면 체크인 레이어 호출
+    //         } else if(res.data == 97) {
+    //             //체크인 가능한 예약건이 없으면
+    //             var today = new Date();
+    //
+    //             //$('#btn_checkin i').removeClass('icon-primary').addClass('icon-gray');
+    //             //cookie.setCookie_setDate('showcheckin','Y',new Date(today.getFullYear(),today.getMonth() + 1,today.getDate(),23,59,59));
+    //         } else {
+    //             alertLayer('체크인 확인 중 오류가 발생했습니다.');
+    //         }
+    //     },
+    //     error: (err) => {
+    //         console.log(err);
+    //     }
+    // });
+}
+const isPossibleCheckOut = () => {
+    $.ajax({
+        url: "/api/v1/check-in/available/check-out",
+        method: "GET",
+        success: (res) => {
+            if (res.data) {
+                $("#checkOutBtn").attr("disabled", false);
+            }
+        }
+    });
+}
+function UBIFORM_Viewer_open(resFolio) {
+    //프로젝트 명
+    // var projectName = "ANANTI^PMS";
+    var projectName = "ANANTI^OnlinePlatform"
+    //서식 명
+    // var formName = "TEST";
+    var formName = "M-REGICARD-PS-01";
+    //데이터 셋
+    var datasetList = {};
+    var dataset_0 = [{"no":1,"nm":"홍길동","position":"사장","addr":"서울시 성동구 성수일로251"},{"no":2,"nm":"김철수","position":"이사","addr":"서울시 성동구 성수일로252"},{"no":3,"nm":"김영희","position":"상무","addr":"서울시 성동구 성수일로253"},{"no":4,"nm":"이영신","position":"부장","addr":"서울시 성동구 성수일로254"},{"no":5,"nm":"김현석","position":"팀장","addr":"서울시 성동구 성수일로255"},{"no":6,"nm":"김현우","position":"과장","addr":"서울시 성동구 성수일로256"},{"no":7,"nm":"강성진","position":"사원","addr":"서울시 성동구 성수일로257"}];
+    datasetList.dataset_0 = JSON.stringify(dataset_0);
+
+    //파라메터
+    var paramList = {};
+    paramList.stDt = "2019-01-01";
+    paramList.endDt = "2019-12-31";
+
+    fn_iframe_open(projectName, formName, datasetList, paramList, resFolio);
+}
+function fn_iframe_open(projectName, formName, datasetList, paramList, resFolio) {
+    var _params = {"projectName":projectName //프로젝트명
+        ,"formName":formName //서식명
+        //t_000 : 상단 옵션 제어
+        //r_000 : 우측 EUC 제어
+        ,"UB_MENUCODE":"t_000,r_000"
+        ,"UB_EMBED_VIEWER_MODE":"true"
+        ,"FOLIONO":resFolio
+    };
+
+    for (var datasetValue in datasetList) {
+        _params[datasetValue] = encodeURIComponent(datasetList[datasetValue]);
+    }
+
+    for (var paramValue in paramList) {
+        _params[paramValue] = paramList[paramValue];
+    }
+
+    // var contextPath='';
+    var _url = "http://report-server-2137341499.ap-northeast-2.elb.amazonaws.com:8080/UBIFORM/UView5/index.jsp";
+
+    // 서버에 전송할 Parameter 처리
+    var form = document.createElement("form");
+    form.setAttribute("method", "get");
+    form.setAttribute("action", _url);
+
+    for (var i in _params)
+    {
+        if (_params.hasOwnProperty(i))
+        {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = i;
+            input.value = _params[i];
+            form.appendChild(input);
+        }
+    }
+    $("#eformDiv").append(form);
+    // PDF파일을 받을수 있도록 IFrame를 Form에 Target로 지정
+    form.setAttribute("target", "viwer_iFrame");               // 생성되어 있는 IFrame의 이름으로 지정
+    if(document.getElementById("pdfIframe") == null){
+        var vframe = document.createElement("iframe");
+        vframe.setAttribute('id', "pdfIframe");
+        vframe.setAttribute("name","viwer_iFrame");
+        vframe.setAttribute("method", "post");
+        //vframe.style.width = "1080px";
+        //vframe.style.height = "1960px";
+        vframe.style.width = "100%";
+        vframe.style.height = "65vh";
+        $("#eformDiv").append(vframe);
+    }
+    else{
+        vframe = document.getElementById("pdfIframe");
+    }
+
+    // IFRAME Focus
+    vframe.focus();
+    // FORM 전송
+    form.submit();
+
+}
+function fn_event_print() {
+    var iframe = document.getElementById("pdfIframe");
+    var objDoc = iframe.contentWindow || iframe.contentDocument;
+    objDoc.printModule.pagePrint();
+
+}
+function fn_event_down() {
+    var down_Type = document.getElementById("ViewExport").value;
+    var iframe = document.getElementById("pdfIframe");
+    var objDoc = iframe.contentWindow || iframe.contentDocument;
+    objDoc.userScriptModule.callExportMenu(down_Type);
+
+}
+function fn_event_changePage(Type) {
+    var down_Type = document.getElementById("ViewExport").value;
+    var iframe = document.getElementById("pdfIframe");
+    var objDoc = iframe.contentWindow || iframe.contentDocument;
+    objDoc.userScriptModule.ChangePageHandler(Type);
+
+}
+function initRegistCard() {
+    var roomNo = $("#cardCheckIn").attr('roomNo');
+    var roomId = $("#cardCheckIn").attr('roomId');
+    var resFolio = $("#cardCheckIn").attr('resFolio');
+
+    if(detailPlatform == 'CHORD') {
+        $.ajax({
+            url: "/check-in/registCardCheck_platform?bsns=24&resFolio=" + resFolio + "&roomNo=" + roomId,
+            method: "get",
+            type: "json",
+            contentType: "application/json",
+            success: function (result) {
+                if (result.code == '200') {
+                    alertLayer('이미 작성된 등록 카드가 있습니다. 체크인 완료 버튼을 눌러주세요.',function(){
+                        return;
+                    })
+                } else {
+                    //reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?projectName=ANANTI%5EOnlinePlatform&formName=M-REGICARD-PH&UB_MENUCODE=t_000%2Cr_000&UB_EMBED_VIEWER_MODE=false&REVE_SEQ=1&SOSOK_CODE=6&REVE_ACNO=' + resFolio)
+                    reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?UBOpener=editor&projectName=ANANTI%5EOnlinePlatform%5ERegicard&UB_EX_PROJECTCODE=&formName=M-REGICARD-PH&sosok=6&seq=1&acno=' + resFolio);
+                }
+            }
+        });
+    } else {
+        var bsns = $("#reservationList input[name='smartCheckin']:checked").data('room-data').res_Bsns;
+        $.ajax({
+            url: "/check-in/registCardCheck_platform?bsns=" + bsns + "&resFolio=" + resFolio + "&roomNo=" + roomNo,
+            method: "get",
+            type: "json",
+            contentType: "application/json",
+            success: function (result) {
+                if (result.code == '200') {
+                    alertLayer('이미 작성된 등록 카드가 있습니다. 체크인 완료 버튼을 눌러주세요.',function(){
+                        return;
+                    })
+                } else {
+                    if(detailPlatform === 'GANM') {
+                        //reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?projectName=ANANTI%5EOnlinePlatform&formName=M-REGICARD-GN&UB_MENUCODE=t_000%2Cr_000&UB_EMBED_VIEWER_MODE=false&REVE_SEQ=1&SOSOK_CODE=9&REVE_ACNO=' + resFolio)
+                        reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?UBOpener=editor&projectName=ANANTI%5EOnlinePlatform%5ERegicard&UB_EX_PROJECTCODE=&formName=M-REGICARD-GN&sosok=9&seq=1&acno=' + resFolio);
+                    } else if(detailPlatform === 'BUSAN') {
+                        //reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?projectName=ANANTI%5EOnlinePlatform&formName=M-REGICARD-HB&UB_MENUCODE=t_000%2Cr_000&UB_EMBED_VIEWER_MODE=false&REVE_SEQ=1&SOSOK_CODE=3&REVE_ACNO=' + resFolio)
+                        reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?UBOpener=editor&projectName=ANANTI%5EOnlinePlatform%5ERegicard&UB_EX_PROJECTCODE=&formName=M-REGICARD-HB&sosok=3&seq=1&acno=' + resFolio);
+                    } else if(detailPlatform === 'VILLAGE') {
+                        //reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?projectName=ANANTI%5EOnlinePlatform&formName=M-REGICARD-VL&UB_MENUCODE=t_000%2Cr_000&UB_EMBED_VIEWER_MODE=false&REVE_SEQ=1&SOSOK_CODE=10&REVE_ACNO=' + resFolio)
+                        reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?UBOpener=editor&projectName=ANANTI%5EOnlinePlatform%5ERegicard&UB_EX_PROJECTCODE=&formName=M-REGICARD-VL&sosok=10&seq=1&acno=' + resFolio);
+                    } else if(detailPlatform === 'ATBUSAN') {
+                        //reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?projectName=ANANTI%5EOnlinePlatform&formName=M-REGICARD-BUSAN&UB_MENUCODE=t_000%2Cr_000&UB_EMBED_VIEWER_MODE=false&REVE_SEQ=1&SOSOK_CODE=14&REVE_ACNO=' + resFolio)
+                        reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?UBOpener=editor&projectName=ANANTI%5EOnlinePlatform%5ERegicard&UB_EX_PROJECTCODE=&formName=M-REGICARD-BUSAN&sosok=14&seq=1&acno=' + resFolio);
+                    }
+                }
+            }
+        });
+    }
+}
+
+function fn_getCheckinList() {
+    var url = '/api/v1/getCheckinList_platform?platform=' + detailPlatform;
+
+    $.ajax({
+        url: url,
+        method: "post",
+        content_type: 'application/x-www-form-urlencoded',
+        beforeSend: function() {},
+        success: function (result) {
+            if(result.code==200){
+                if(result.data != null && result.data.length > 0) {
+                    result.data.forEach(function(key, index, keylist) {
+                        if(key.basic !== null && key.basic !== '') {
+                            reqDataApp(
+                                "REQ_INIT_MOBILE_KEY",
+                                {
+                                    basic: key.basic,
+                                    ext1: key.ext1,
+                                    ext2: key.ext2,
+                                    room: key.room,
+                                    checkin: key.checkin,
+                                    checkout: key.checkout,
+                                    reserveNo: key.reserveNo,
+                                    title1: key.title1,
+                                    title2: key.title2,
+                                },
+                                true
+                            )
+                        }
+
+                        if(keylist.length == (index + 1)) {
+                            reqDataApp('REQ_RUN_MOBILE_KEY');
+                        }
+                    });
+                } else {
+                    //체크인 데이터가 없으면
+                    makeMobileKey_Layer();
+                }
+            }else{
+                alertLayer(result.message)
+            }
+        },
+        error: function() {
+
+        }
+    });
+}
+
+function fn_checkoutinit() {
+    localStorage.clear();
+    $('#modal-checkout input[name^="checkoutAgree"]').prop('checked',false);
+}
+
+function fn_checkout(sitecode) {
+    fn_checkoutinit();
+
+    $.ajax({
+        url: "/check-in/getCheckOutRoom?sitecode=" + sitecode,
+        method: "post",
+        type: "json",
+        contentType: "application/json",
+        success: function (result) {
+            if(result.code=='200'){
+                console.log(result.data);
+
+                if (result.data != null && result.data.length > 0) {
+                    ckOutRoomInfoDraw(result.data,document.getElementById('btn_checkout'));
+                }else{
+                    // cookie.deleteCookie("showcheckin")
+                    // $('#btn_checkout i').removeClass('icon-primary').addClass('icon-gray');
+                    if(sitecode === 'CHORD') {
+                        alertLayer("체크인 내역이 존재하지 않습니다.");
+                    } else {
+                        alertLayer(result.message);
+                    }
+                }
+            }else{
+                if(result.code == '501') {
+                    location.href = '/ko/login';
+                    return;
+                }
+                // cookie.deleteCookie("showcheckin")
+                // $('#btn_checkout i').reomveClass('icon-primary').addClass('icon-gray');
+                alertLayer("체크인 내역이 존재하지 않습니다.");
+            }
+        }
+    });
+}
+
+function showfloating(res) {
+    var isfloating = true;
+    $('#appUtils_nav').children().remove();
+
+    if (res.data) {
+        currentPlatform = res.message;
+        detailPlatform = currentPlatform;
+
+        if(res.message === 'CHORD') {
+            $('#appUtils').addClass('appUtils7');
+            $('#appUtils_nav').html($('#apputils_basic').prop('outerHTML'));
+        } else if(res.message === 'GANM') {
+            $('#appUtils').addClass('appUtils7');
+            $('#appUtils_nav').html($('#apputils_ganm').prop('outerHTML'));
+        } else if(res.message === 'JEJU') {
+            $('#appUtils_nav').html($('#apputils_jeju').prop('outerHTML'));
+        } else if(res.message === 'COVE') {
+            $('.js-fab').toggleClass('is-expanded');
+            isfloating = false;
+        } else if (res.message === 'NAMHAE') {
+            $('#apputils_covenamhae [name="btn_findroad"]').parent().remove();
+            $('#apputils_covenamhae [name="btn_Fnb"]').parent().remove();
+
+            $('#appUtils_nav').html($('#apputils_covenamhae').prop('outerHTML'));
+        } else {
+            $('#appUtils_nav').html($('#apputils_basic').prop('outerHTML'));
+            $('#btn_checkout,#btn_checkin,#btn_mobilekey').find('i').removeClass('icon-primary icon-gray').addClass('icon-gray').parent().attr('disabled',true).parent().addClass('coming');
+        }
+    }
+    else {
+        $('#appUtils_nav').html($('#apputils_basic').prop('outerHTML'));
+        $('#btn_checkout,#btn_checkin,#btn_mobilekey').find('i').removeClass('icon-primary icon-gray').addClass('icon-gray').parent().attr('disabled',true);
+    }
+
+    if(isfloating) {
+        appUtilsOpen();  //앱 플로팅 버튼 활성
+    }
+}
+
+function busanFloating(site) {
+
+    if(site === 'CLOSE') {
+        $("#chatDiv").removeClass('is-expanded');
+        $("input:checkbox[id='appUtilsBtnToggle']").prop("checked", false);
+    } else {
+        $('#appUtils_nav').children().remove();
+        $('#appUtils').removeAttr("style").removeClass('appUtils7');
+        if(site === 'COVE'){
+            $('#appUtils').addClass('appUtils7');
+            $('#appUtils_nav').html($('#apputils_covenamhae').prop('outerHTML'));
+        } else if (site === 'BUSAN'){
+            $('#appUtils').addClass('appUtils7');
+            $('#appUtils_nav').html($('#apputils_' + site.toLowerCase()).prop('outerHTML'));
+        } else if (site === 'VILLAGE' || site === 'ATBUSAN') {
+            $('#appUtils').addClass('appUtils7');
+            $('#appUtils_nav').html($('#apputils_' + site.toLowerCase()).prop('outerHTML'));
+        }
+
+        $('.appUtils__nav ul.appUtils__list').data('plf',site); //부산지역 플랫폼 구분용
+        $("#chatDiv").removeClass('is-expanded');
+        $("input:checkbox[id='appUtilsBtnToggle']").prop("checked", true);
+
+        appUtilsOpen();  //앱 플로팅 버튼 활성
+    }
+}
+
+function fn_minibarlist() {
+    if(detailPlatform != null && detailPlatform != '') {
+        $.ajax({
+            url: "/check-in/minibarlist?sitecode=" + detailPlatform,
+            method: "get",
+            dataType: "html",
+            success: function (data) {
+                if(data != null && data.length > 0) {
+                    $('#modal-checkout button[data-modal="close"]').click();
+                    $('#modal-checkout-minibar-check .checkout-addLayer').html('').html($('#modal-checkout-minibar-check-init .checkout-addLayer').clone());
+                    $('#modal-checkout-minibar-check .modal-content [name="minibarlist"]').remove();
+
+                    $('#modal-checkout-minibar-check .modal-content').prepend(data);
+                    modal('#modal-checkout-minibar-check', checkoutAddonOpen);
+                    $('#checkoutAddonContent').imagesLoaded()
+                        .done( function( instance ) {
+                            var checkoutAddonScrollSpy = new ScrollSpy('#checkoutAddonContent');
+                        });
+                }
+            },
+            error: function (err) {
+                alertLayer('체크아웃 진행중 오류가 발생했습니다.(MINIBAR)');
+                return;
+            }
+        });
+    }
+}
+
+var checkoutAddItemSlide;
+var $modalCheckoutAddonFooter;
+var checkoutAddonDimmed;
+$modalCheckoutAddonFooter = $('.modal-checkoutAddon .modal-footer');
+$(document).on('click','.modal-checkoutAddon .checkout-addBtn', function () {
+    //var addprd = $('#modal-checkout-minibar-check .checkout-addLayer__list li');
+    var selprdlist = $('#checkoutAddonContent [name="checkoutAddon"]:checked');
+
+    $modalCheckoutAddonFooter.toggleClass('active');
+    if ( $modalCheckoutAddonFooter.hasClass('active') ) {
+
+        if($(this).attr('id') != null && $(this).attr('id') == 'btn_addprd') {
+            var addprdlist = $('#modal-checkout-minibar-check .checkout-addLayer__list');
+            var prdlayout = $('#modal-checkout-minibar-prod-layout li');
+
+            $(addprdlist).children().remove();
+
+            $(selprdlist).each(function(index, item) {
+                $(prdlayout).data('code',$(item).data('code'));
+                $(prdlayout).data('price',$(item).data('price'));
+                $(prdlayout).find('[name="minibar-prod-title"]').text($(item).data('name'));
+                $(prdlayout).find('[name="minibar-prod-price"]').text(addComma($(item).data('price').toString()) + '원');
+
+                $(addprdlist).append($(prdlayout).clone(true));
+            });
+
+            fn_totalprdcal();
+        }
+
+        $('#actionsWrap').addClass('d-none');
+        $('#payBtnWrap').removeClass('d-none');
+        $('.modal-checkoutAddon .modal-body').append('<div class="backdrop"></div>');
+        checkoutAddonDimmed = gsap.to('.modal-checkoutAddon .modal-body .backdrop', {
+            opacity: 1,
+            duration: 0.4,
+        });
+        checkoutAddItemSlide.update();  // 결제 상품 추가,삭제 시 checkoutAddItemSlide.update() 함수 사용해서 스크롤영역 업데이트 필요
+    } else {
+        $('#actionsWrap').removeClass('d-none');
+        $('#payBtnWrap').addClass('d-none');
+        checkoutAddonDimmed.reverse();
+        checkoutAddonDimmed.eventCallback('onReverseComplete', function () {
+            $('.modal-checkoutAddon .modal-body .backdrop').remove();
+        });
+    }
+});
+$(document).on('touchstart', '.modal-checkoutAddon', function(e) {
+    var checkoutAddonFooter = $('.modal-checkoutAddon .modal-footer');
+    if ( checkoutAddonFooter.has(e.target).length === 0 ) {
+        $modalCheckoutAddonFooter.removeClass('active');
+        $('#actionsWrap').removeClass('d-none');
+        $('#payBtnWrap').addClass('d-none');
+        checkoutAddonDimmed.reverse();
+        checkoutAddonDimmed.eventCallback('onReverseComplete', function () {
+            $('.modal-checkoutAddon .modal-body .backdrop').remove();
+        });
+    }
+});
+
+function checkoutAddonOpen() {
+    checkoutAddItemSlide = new Swiper('#modal-checkout-minibar-check .checkout-addLayer__cont .swiper-container', {
+        direction: "vertical",
+        slidesPerView: "auto",
+        freeMode: true,
+        scrollbar: {
+            el: ".checkout-addLayer__cont .slide-scrollbar",
+        },
+        mousewheel: true,
+    });
+}
+
+function fn_ckPrdQty(gubun, target) {
+    var selopt = $(target).parents('li');
+    var currentqty = parseInt($(selopt).find('[name="prdqty"]').val());
+
+
+    if(gubun == 'm') {
+        if(currentqty > 1) {
+            $(selopt).find('[name="prdqty"]').val(currentqty - 1);
+            $(selopt).find('[name="minibar-prod-price"]').text(addComma(($(selopt).data('price') * (currentqty - 1)).toString()) + '원');
+        }
+    } else {
+        $(selopt).find('[name="prdqty"]').val(currentqty + 1);
+        $(selopt).find('[name="minibar-prod-price"]').text(addComma(($(selopt).data('price') * (currentqty + 1)).toString()) + '원');
+    }
+
+    fn_totalprdcal();
+}
+
+function fn_ckPrdQtyChange(el) {
+    if($(el).val() == '') {
+        $(el).val("1");
+    } else {
+        $(el).val($(el).val().replace(/[^0-9]/g, "1"));
+    }
+
+    checkoutAddItemSlide.update();
+}
+
+function fn_delopt(target) {
+    var target_li = $(target).parents('li');
+    $('#checkoutAddonContent input:checkbox[data-code=' + $(target_li).data('code') + ']').prop('checked',false);
+    $(target_li).remove();
+    fn_totalprdcal();
+}
+
+function addComma(value){
+    if (value != null) value = value.toString();
+    value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return value;
+}
+
+function fn_totalprdcal() {
+    var totalcnt = 0;
+    var totalprice = 0;
+
+    $('#modal-checkout-minibar-check .checkout-addLayer__list li').each(function(index, item) {
+        totalcnt += parseInt($(item).find('[name="prdqty"]').val());
+        totalprice += parseInt($(item).data('price')) * parseInt($(item).find('[name="prdqty"]').val());
+    });
+
+    $('#modal-checkout-minibar-check [name="minibar_totcnt"]').text(addComma(totalcnt));
+    $('#modal-checkout-minibar-check [name="minibar_totprice"]').text(addComma(totalprice)).data('totalprice',totalprice);
+}
+
+function fn_ckConfirmPrice() {
+    var addprd = $('#modal-checkout-minibar-check .checkout-addLayer__list li');
+    if(addprd.length == 0) {
+        alertLayer('상품을 추가해주세요.');
+        return;
+    }
+
+
+    confirmLayer('선택한 내역이 결제됩니다. 테이스티저니(미니바) 이용 내역을 확정하시겠습니까?', function(){
+        var checkoutData = $('#reservationOutList .ckRoomInfo:checked').data('room-data');
+        var folio = checkoutData != null ? checkoutData.res_Folio : chkout_ordno != null ? chkout_ordno : '';
+        var tastyjourney_price = $('#modal-checkout-minibar-check [name="minibar_totprice"]').data('totalprice');
+
+        $.ajax({
+            url: "/check-in/checkout_invoice?sitecode=" + detailPlatform + "&resFolio=" + folio + "&minibarPrice=" + tastyjourney_price,
+            method: "GET",
+            dataType: "html",
+            success: function (result) {
+                if(result != null) {
+                    $('#modal-checkout-minibar-check button[data-modal="close"]').click();
+
+                    // var cflayout = $('#ckCfLayout').children().clone(true);
+                    //
+                    // $(cflayout).find('[name="ckCfCateName"]').text('테이스티저니');
+                    // $(cflayout).find('[name="ckCfCatePrice"]').text(tastyjourney_price + '원');
+
+
+                    $('#modal-checkout-minibar-payment #ckCflist').children().remove();
+                    $('#modal-checkout-minibar-payment #ckCflist').append(result);
+
+                    $('#modal-checkout-minibar-payment #ckCfTotPrice').text(addComma($(result).data('sumbalance')) + '원');   //tastyjourney만 우선..
+
+                    var checkoutMinibarSwiper = new Swiper('#modal-checkout-minibar-payment .modal-body .swiper-container', {
+                        direction: "vertical",
+                        slidesPerView: "auto",
+                        freeMode: true,
+                        scrollbar: {
+                            el: "#modal-checkout-minibar-payment .modal-body .slide-scrollbar",
+                        },
+                        mousewheel: true,
+                    });
+
+                    modal('#modal-checkout-minibar-payment');
+
+                }
+            },
+            error : function (err) {
+                console.log(err);
+            }
+        });
+
+    });
+}
+
+function fn_checkout_direct_pay() {
+    var checkoutData = $('#reservationOutList .ckRoomInfo:checked').data('room-data');
+    var folio = checkoutData != null ? checkoutData.res_Folio : chkout_ordno != null ? chkout_ordno : '';
+
+    $.ajax({
+        url: "/check-in/checkout_invoice?sitecode=" + detailPlatform + "&resFolio=" + folio + "&minibarPrice=0",
+        method: "GET",
+        dataType: "html",
+        success: function (result) {
+            if(result != null) {
+                $('#modal-checkout-minibar-check button[data-modal="close"]').click();
+
+                $('#modal-checkout-minibar-payment #ckCflist').children().remove();
+                $('#modal-checkout-minibar-payment #ckCflist').append(result);
+                $('#modal-checkout-minibar-payment #ckCfTotPrice').text(addComma($(result).data('sumbalance')) + '원');   //tastyjourney만 우선..
+
+                var checkoutMinibarSwiper = new Swiper('#modal-checkout-minibar-payment .modal-body .swiper-container', {
+                    direction: "vertical",
+                    slidesPerView: "auto",
+                    freeMode: true,
+                    scrollbar: {
+                        el: "#modal-checkout-minibar-payment .modal-body .slide-scrollbar",
+                    },
+                    mousewheel: true,
+                });
+
+                $('#modal-checkout-minibar-payment button[name="btn_chkoutpay_cancel"]').attr('onclick','fn_ckPrev(\'check\');')
+                localStorage.setItem('directpay-' + folio,'Y');
+                modal('#modal-checkout-minibar-payment');
+
+            }
+        },
+        error : function (err) {
+            console.log(err);
+        }
+    });
+}
+
+function fn_ckPrev(gubun) {
+    if(gubun == 'payment') {
+        confirmLayer('선택하신 내용이 초기화 됩니다.<br>그래도 이동하시겠습니까?', function () {
+            $('#modal-checkout-minibar-payment button[data-modal="close"]').click();
+            // modal('#modal-checkout-minibar-check');
+            fn_minibarlist();
+        });
+    } else if(gubun == 'check') {
+        confirmLayer('선택하신 내용이 초기화 됩니다.<br>그래도 취소하시겠습니까?', function () {
+            globalLoaderDark.start();
+            $('#modal-checkout-minibar-check button[data-modal="close"]').click();
+            $('#modal-checkout-minibar-payment button[data-modal="close"]').click();    //미니바 선택이 아닌 balance가 남아있어 넘어온경우..
+            $('#appUtils .appUtils__list #btn_checkout')[0].click();
+            //fn_checkout('GANM');
+            //modal('#modal-checkout');
+        });
+    }
+}
+
+function fn_checkoutPay() {
+    // if(!($('#modal-checkout-minibar-payment [name="ckTerms01"]').is(":checked"))) {
+    //     alertLayer('필수 항목을 확인해 주세요.');
+    //     return false;
+    // }
+
+    var checkoutData = $('#reservationOutList .ckRoomInfo:checked').data('room-data');
+    var folio = checkoutData != null ? checkoutData.res_Folio : chkout_folio != null ? chkout_folio : '';
+    var selitem_tostr = '';
+    var sumbalance = $('#modal-checkout-minibar-payment #ckCflist').children().data('sumbalance');
+    var buyr_name = '';
+    var buyr_tel1 = '';
+
+    if(folio == null || folio == '') {
+        alert('에러');
+        return false;
+    }
+
+    if($('#modal-checkout-minibar-check [name="minibar_totprice"]').data('totalprice') == null && localStorage.getItem('totalprice-' + folio) != null) {
+        $('#modal-checkout-minibar-check [name="minibar_totprice"]').data('totalprice',localStorage.getItem('totalprice-' + folio));
+        selitem_tostr = localStorage.getItem("iteminfo-" + folio);
+
+    } else {
+        localStorage.setItem('plf-' + folio, detailPlatform);
+        localStorage.setItem('totalprice-' + folio, sumbalance);
+        localStorage.setItem('localsto-checkout-minibar-payment-' + folio,$('#modal-checkout-minibar-payment #ckCflist').clone(true).html());
+
+        var selitemarray = [];
+        var itemcnt = $('#modal-checkout-minibar-check .checkout-addLayer__list li').length;
+        $('#modal-checkout-minibar-check .checkout-addLayer__list li').each(function(index, item){
+            selitemarray.push({ 'itemid' : $(item).data('code'), 'qty' : $(item).find('input[name="prdqty"]').val() });
+            if(itemcnt <= (index+ 1)) {
+                localStorage.setItem('iteminfo-' + folio,JSON.stringify(selitemarray));
+                selitem_tostr = JSON.stringify(selitemarray);
+            }
+        });
+    }
+
+    if(checkoutData != null) {
+        buyr_name = checkoutData.res_Caller;
+        buyr_tel1 = checkoutData.res_CallTel;
+
+        localStorage.setItem('buyr_name-' + folio, buyr_name);
+        localStorage.setItem('buyr_tel1-' + folio, buyr_tel1);
+    } else {
+        buyr_name = localStorage.getItem("buyr_name-" + folio);
+        buyr_tel1 = localStorage.getItem("buyr_tel1-" + folio);
+    }
+
+    $.ajax({
+        url: "/check-in/checkout_getOrdNo",
+        method: "POST",
+        content_type: 'application/x-www-form-urlencoded',
+        success: function (result) {
+            if(result != null) {
+                if(result.code == 200) {
+                    var platformNm = '아난티';
+                    if (detailPlatform === 'BUSAN') {
+                        platformNm = '아난티 앳 부산 코브'
+                    } else if (detailPlatform === 'GANM') {
+                        platformNm = '아난티 앳 강남'
+                    } else if (detailPlatform === 'VILLAGE') {
+                        platformNm = '빌라쥬 드 아난티'
+                    } else if (detailPlatform === 'ATBUSAN') {
+                        platformNm = '아난티 앳 부산 빌라쥬'
+                    }
+
+                    var params = {}
+                    params["sitecode"] = detailPlatform;
+                    params["orderId"] = result.data;
+                    params["iteminfo"] = selitem_tostr;
+                    params["folio"] = folio;
+                    params["good_mny"] = sumbalance;
+                    params["good_name"] = platformNm;
+                    params["buyr_name"] = buyr_name;
+                    params["buyr_tel1"] = buyr_tel1;
+
+                    $.ajax({
+                        url: "/check-in/checkout_approval_setting",
+                        method: "POST",
+                        dataType: "html",
+                        data: JSON.stringify(params),
+                        success: function (result) {
+                            if(result != null) {
+                                $('body').append(result);
+                                kcp_AJAX();
+                            }
+                        },
+                        error : function (err) {
+                            console.log(err);
+                        }
+                    });
+
+                } else {
+                    alertLayer('PAYNO 생성 중 오류가 발생했습니다.');
+                }
+            }
+        },
+        error : function (err) {
+            alertLayer('PAYNO 생성 중 오류가 발생했습니다.');
+        }
+    });
+}
+
+function fn_checkin_facechk_or_nextstep(roomdata) {
+    //페이스체크
+    if(roomdata.secret_Type == 'N'){
+        reqFace(roomdata.res_Cmno);
+        $("#checkIn-userInfo").html("환영합니다.<br>"+roomdata.res_Name+"님의 반가운 얼굴이 확인 되었습니다.")
+    }else{
+        var modalDiv = document.getElementById('modal-checkin-check').querySelector(".checkinNext")
+        $.ajax({
+            url: "/check-in/getAvailRoom_Platform?bsns="+roomdata.res_Bsns+"&resFolio="+roomdata.res_Folio+"&rmDnm=" + roomdata.rm_Dnm+"&rmNo=" + roomdata.rm_No,
+            async:true,
+            dataType: "html",
+            success: function (result) {
+                if(result){
+                    $("#checkInRoomDiv").html(result)
+                    $("#checkInRoomDiv [id^='checkin-room-'],[id^='checkin-card-']").hide();
+
+                    setTimeout(function () {
+                        new Swiper('#modal-checkin-room .swiper-container.slide-free', {
+                            slidesPerView: 'auto',
+                            freeMode: true,
+                            spaceBetween: 10
+                        });
+                        // $("#modal-checkin-check .backdrop").click();
+                        modal(modalDiv);
+
+                        var roominfo = $("#reservationList input[name='smartCheckin']:checked").data('room-data');
+                        if(roominfo.rm_Dnm == "1" && roominfo.rm_No != "") {
+                            alertLayer(roominfo.res_Name + '님께 배정된 객실은 (' + roominfo.rm_Desc + ') ' + roominfo.rm_No + ' 입니다.', function() {
+                                $('#modal-checkin-room .checkinNext').click();
+                            });
+                        }
+                    }, 100);
+                }else{
+                    alertLayer("예약 내역이 존재하지 않습니다.");
+                }
+            }
+        });
+    }
+}
+
+function fn_checkin_roomlist_next() {
+    if(!$("#modal-checkin-room input:radio[name='roomno']").is(':checked')){
+        alertLayer("객실을 선택해 주세요.");
+    }else{
+        var modalDiv = document.getElementById('modal-checkin-room').querySelector(".checkinNext")
+        var $radio = $("#modal-checkin-room input:radio[name='roomno']:checked");
+        var roomId = $radio.attr('roomId');
+        var dong = $radio.attr('dong');
+        var resFolio = $radio.attr('resFolio');
+        var roomNo = $radio.attr('roomNo');
+        var roomView = $radio.attr('view');
+        var bsns = $("#reservationList input[name='smartCheckin']:checked").data('room-data').res_Bsns;
+        var before_rmNo = $("#reservationList input[name='smartCheckin']:checked").data('room-data').rm_No;
+
+        $.ajax({
+            url: "/check-in/roomBlock_platform?bsns=" + bsns + "&resFolio=" + resFolio + "&roomCd=" + roomId,
+            method: "get",
+            type: "json",
+            contentType: "application/json",
+            success: function (result) {
+                if (result.code == '200') {
+                    $("#cardCheckIn").attr('resFolio',resFolio)
+                    $("#cardCheckIn").attr('roomId',roomId)
+                    $("#cardCheckIn").attr('dong',dong)
+                    $("#cardCheckIn").attr('roomView',roomView)
+                    $("#cardCheckIn").attr('roomNo',roomNo)
+                    $("#modal-checkin-room .backdrop").click();
+                    modal(modalDiv);
+                    // reqDataApp('showSubWebView','http://report-server-2137341499.ap-northeast-2.elb.amazonaws.com:8080/UBIFORM/UView5/index.jsp?projectName=ANANTI%5EOnlinePlatform&formName=M-REGICARD-PS-01&UB_MENUCODE=t_000%2Cr_000&UB_EMBED_VIEWER_MODE=false&FOLIONO='+resFolio+'&stDt=2019-01-01&endDt=2019-12-31')
+                }else{
+                    alertLayer('선택하신 객실이 마감되었습니다. 다른 객실을 선택해주세요.');
+                }
+            }
+        });
+    }
+}
+
+function fn_checkincomplete(resinfo) {
+
+    var roomNo = $(resinfo).attr('roomNo');
+    var roomId = $(resinfo).attr('roomId');
+    var resFolio = $(resinfo).attr('resFolio');
+    var roomView = $(resinfo).attr('view');
+    var bsns = $("#reservationList input[name='smartCheckin']:checked").data('room-data').res_Bsns;
+
+    $.ajax({
+        url: "/check-in/registCardCheck_platform?bsns=" + bsns + "&resFolio="+resFolio+"&roomNo="+roomNo,
+        method: "get",
+        type: "json",
+        contentType: "application/json",
+        success: function (result) {
+            if(result.code =='200'){
+                $.ajax({
+                    url: "/check-in/checkInProcess_platform?bsns=" + bsns + "&resFolio=" + resFolio,
+                    method: "get",
+                    type: "json",
+                    contentType: "application/json",
+                    success: function (result) {
+                        if (bsns == '20') {
+                            if (result.code == '200' || result.code == '210') {
+                                console.log(result)
+
+                                $("#modal-checkin-card .backdrop").click();
+                                var modal_checkin_suc_not_cardkey = $('#modal-checkin-suc-not-cardkey');
+                                $(modal_checkin_suc_not_cardkey).find('[name="checkInResFolio"]').text("예약번호 : " + resFolio);
+                                $(modal_checkin_suc_not_cardkey).find('[name="checkInRoomInfo"]').text(result.data.title1 + " " + result.data.title2);
+
+                                $('#cardCheckIn').attr('data-modal-target', '#modal-checkin-suc-not-cardkey');
+                                $('#cardCheckIn').data('modal-target', '#modal-checkin-suc-not-cardkey');
+
+                                modal(document.getElementById('cardCheckIn'));
+                            } else {
+                                alertLayer(result.message);
+                            }
+                        } else if(bsns === '40' || bsns == '41') { //빌라쥬, 앳부산
+                            if (result.code == '200' || result.code == '210') {
+                                console.log(result)
+
+                                if(result.data !== null && result.data.basic !== null) {
+                                    reqDataApp(
+                                        "REQ_INIT_MOBILE_KEY",
+                                        {
+                                            basic: result.data.basic,
+                                            ext1: result.data.ext1,
+                                            ext2: result.data.ext2,
+                                            room: result.data.room,
+                                            checkin: result.data.checkin,
+                                            checkout: result.data.checkout,
+                                            reserveNo: result.data.reserveNo,
+                                            title1: result.data.title1,
+                                            title2: result.data.title2,
+                                        },
+                                        true
+                                    )
+                                }
+
+                                var modal_checkin_suc_village= $('#modal-checkin-suc-village');
+                                $(modal_checkin_suc_village).find('[name="checkInResFolio"]').text("예약번호 : " + resFolio);
+                                $(modal_checkin_suc_village).find('[name="checkInRoomInfo"]').text(result.data.title1 + " " + result.data.title2);
+
+                                $('#cardCheckIn').attr('data-modal-target', '#modal-checkin-suc-village');
+                                $('#cardCheckIn').data('modal-target', '#modal-checkin-suc-village');
+                                if (result.data !== null && result.data.room != null) {
+                                    if(bsns == '41') {
+                                        $(modal_checkin_suc_village).find('[name="checkInLocation"]').text('프론트 데스크 라운지는 아난티 앳 부산 빌라쥬 1층에 위치합니다. ');
+                                    } else {
+                                        if(result.data.room.substring(0,1) === '1' || result.data.room.substring(0,1) === '2') {
+                                            $(modal_checkin_suc_village).find('[name="checkInLocation"]').text('프론트 데스크 라운지는 엘피크리스탈 2층에 위치합니다.');
+                                        } else {
+                                            $(modal_checkin_suc_village).find('[name="checkInLocation"]').text('프론트 데스크 라운지는 아난티 앳 부산 빌라쥬 1층에 위치합니다. ');
+                                        }
+                                    }
+                                }
+
+                                $("#modal-checkin-card .backdrop").click();
+                                if(result.code == '210') {
+                                    alertLayer(result.message,function(){
+                                        modal(document.getElementById('cardCheckIn'));
+                                    });
+                                } else {
+                                    modal(document.getElementById('cardCheckIn'));
+                                }
+                            }else {
+                                alertLayer(result.message);
+                            }
+                        } else {
+                            if (result.code == '200' || result.code == '210') {
+                                console.log(result)
+
+                                if(result.data !== null && result.data.basic !== null) {
+                                    reqDataApp(
+                                        "REQ_INIT_MOBILE_KEY",
+                                        {
+                                            basic: result.data.basic,
+                                            ext1: result.data.ext1,
+                                            ext2: result.data.ext2,
+                                            room: result.data.room,
+                                            checkin: result.data.checkin,
+                                            checkout: result.data.checkout,
+                                            reserveNo: result.data.reserveNo,
+                                            title1: result.data.title1,
+                                            title2: result.data.title2,
+                                        },
+                                        true
+                                    )
+                                }
+
+                                if(result.code == '210') {
+                                    alertLayer(result.message,function(){
+                                        $("#modal-checkin-card .backdrop").click();
+                                        $("#checkInResFolio").text("예약번호 : " + resFolio);
+                                        $("#checkInRoomInfo").text(result.data.title1 + " " + result.data.title2);
+
+                                        modal(document.getElementById('cardCheckIn'));
+                                    });
+                                } else {
+                                    $("#modal-checkin-card .backdrop").click();
+                                    $("#checkInResFolio").text("예약번호 : " + resFolio);
+                                    $("#checkInRoomInfo").text(result.data.title1 + " " + result.data.title2);
+
+                                    modal(document.getElementById('cardCheckIn'));
+                                }
+                            }else {
+                                alertLayer(result.message);
+                            }
+                        }
+                    }
+                });
+            }else{
+                alertLayer(result.message,function(){
+                    if(bsns == '36') {
+                        //reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?projectName=ANANTI%5EOnlinePlatform&formName=M-REGICARD-GN&UB_MENUCODE=t_000%2Cr_000&UB_EMBED_VIEWER_MODE=false&REVE_SEQ=1&SOSOK_CODE=9&REVE_ACNO=' + resFolio)
+                        reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?UBOpener=editor&projectName=ANANTI%5EOnlinePlatform%5ERegicard&UB_EX_PROJECTCODE=&formName=M-REGICARD-GN&sosok=9&seq=1&acno=' + resFolio);
+                    } else if (bsns == '20') {
+                        //reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?projectName=ANANTI%5EOnlinePlatform&formName=M-REGICARD-HB&UB_MENUCODE=t_000%2Cr_000&UB_EMBED_VIEWER_MODE=false&REVE_SEQ=1&SOSOK_CODE=3&REVE_ACNO=' + resFolio)
+                        reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?UBOpener=editor&projectName=ANANTI%5EOnlinePlatform%5ERegicard&UB_EX_PROJECTCODE=&formName=M-REGICARD-HB&sosok=3&seq=1&acno=' + resFolio);
+                    }
+                });
+            }
+        }
+    });
+}
+
+function fn_getInvoice() {
+    var folio = $('#btn_checkout_complete_pay').data('folio');
+    var bsns = $('#btn_checkout_complete_pay').data('bsns');
+
+    if(bsns == '36') {
+        detailPlatform = 'GANM';
+    } else if (bsns == '20'){
+        detailPlatform = 'BUSAN';
+    } else if (bsns == '12'){
+        detailPlatform = 'NAMHAE';
+    } else if (bsns == '25'){
+        detailPlatform = 'COVE';
+    } else if (bsns == '40'){
+        detailPlatform = 'VILLAGE';
+    } else if (bsns == '41'){
+        detailPlatform = 'ATBUSAN';
+    }
+
+    if(detailPlatform === 'GANM') {
+        reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?formName=M-INVOICE_GN&UBOpener=editor&projectName=ANANTI%5EOnlinePlatform&UB_EX_PROJECTCODE=&sosok=9&seq=1&acno=' + folio);
+    } else if(detailPlatform === 'BUSAN') {
+        reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?formName=M-INVOICE_HB&UBOpener=editor&projectName=ANANTI%5EOnlinePlatform&UB_EX_PROJECTCODE=&sosok=3&seq=1&acno=' + folio);
+    } else if(detailPlatform === 'VILLAGE') {
+        reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?formName=M-INVOICE_VL&UBOpener=editor&projectName=ANANTI%5EOnlinePlatform&UB_EX_PROJECTCODE=&sosok=10&seq=1&acno=' + folio);
+    } else if(detailPlatform === 'ATBUSAN') {
+        reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?formName=M-INVOICE_BUSAN&UBOpener=editor&projectName=ANANTI%5EOnlinePlatform&UB_EX_PROJECTCODE=&sosok=14&seq=1&acno=' + folio);
+    }
+}
+
+/*카트서비스 이동*/
+function moveCartService(CHECK){
+    // const testUserIds = ['lane4','pwjeon','masterof','emersonph','fjrodi'];
+    // if(!testUserIds.includes(CHECK)){
+    //     if(new Date('2023-03-02 00:00:00') < new Date()){ //FIXME 6월 30일 24시 일정에따라 작용
+    //         alertLayer("아난티 앳 강남은 리뉴얼 공사로 인해 잠시 쉬어갑니다. <br>오는 6월에 만나요!");
+    //         return false;
+    //     }
+    // }else{
+    getIsLogin(function(result) { //로그인 로직 삭제 예정--
+        if(result == true) {
+            $.ajax({
+                url: "/cart/index",
+                method: "post",
+                type: "json",
+                contentType: "application/json",
+                data: JSON.stringify({}),
+                success: function (result) {
+                    if (result.code === 200) {
+                        $("button[name='cart_agree']").data("key",result.data.key);
+                        if(result.data.isagreeChk === 'Y'){
+                            reqDataApp('showSubWebView','https://ananti.lane4.ai?key='+result.data.key);
+                            savePageLog('GANM','CARTSERVICE',result.data.key,'','','https://ananti.lane4.ai?key='+result.data.key,'','','');
+                        }else{
+                            $('#cartAlertLayer .modal-body').scrollTop(0);
+                            modal(document.getElementById("cartAlertLayer"));
+                        }
+                    }else{
+                        alertLayer(result.message);
+                    }
+                }
+                ,error:function (err) {
+                    if(err.status === 403) {
+                        location.href = '/ko/login';
+                    }
+                }
+            });
+        } else {
+            location.href = '/ko/login';
+        }
+    });
+    // }
+}
+
+$("button[name='cart_agree']").off().on("click",function(){
+    let key = $(this).data("key");
+    reqDataApp('showSubWebView','https://ananti.lane4.ai?key='+key);
+    modalClose('#cartAlertLayer', '#cart_cancel', false);
+    savePageLog('GANM','CARTSERVICE',key,'','','https://ananti.lane4.ai?key='+key,'','','');
+});
+
+$("#cartAlertLayer [data-modal='close']").off().on("click",function(){
+    cookie.deleteCookie("agreeChkKey");
+});
+
+
+function getParam(sname) {
+    var params = location.search.substr(location.search.indexOf("?") + 1);
+    var sval = "";
+
+    params = params.split("&");
+
+    for (var i = 0; i < params.length; i++) {
+        temp = params[i].split("=");
+        if ([temp[0]] == sname) { sval = temp[1]; }
+    }
+    return sval;
+}
+
+$(function () {
+    var cpdetail_chk = location.pathname.indexOf("/ko/my/membership/coupon/");
+    var location_param = location.search.toLocaleLowerCase();
+
+    // if(isApp) {
+    //     reqDataApp('requestAppIntVersion');
+    // }
+    // if(isApp) { //앱 쿠폰상세 캡쳐 방지
+    //     if(cpdetail_chk > -1) {
+    //         reqDataApp('setSecurity',true);
+    //     } else {
+    //         reqDataApp('setSecurity',false);
+    //     }
+    // }
+
+    if(location_param.indexOf('sclayer') > -1) {
+        if(location_param.indexOf('guide_') > -1) {
+            var guide_value =  getParam('sclayer');
+            if(guide_value == 'guide_15'){//chord
+                modal('#modal-notice-checkinMessage');
+            } else if (guide_value.indexOf('guide_ganm') > -1) {
+                if(guide_value == 'guide_ganm_15') {
+                    $('#checkin_ganm_time').text('오후 3시부터 가능');
+                }
+                modal('#modal-notice-checkinMessage_ganm');
+            } else if (guide_value.indexOf('guide_busan') > -1) {
+                modal('#modal-notice-checkinMessage_busan');
+            } else if (guide_value.indexOf('guide_village') > -1) {
+                if(guide_value == 'guide_village_16') {
+                    $('#checkin_village_time').text('오후 4시부터 가능');
+                }
+                modal('#modal-notice-checkinMessage_village');
+            } else if (guide_value.indexOf('guide_atbusan') > -1) {
+                if(guide_value == 'guide_atbusan_16') {
+                    $('#checkin_atbusan_time').text('오후 4시부터 가능');
+                }
+                modal('#modal-notice-checkinMessage_atbusan');
+            }
+        } else if (location_param.indexOf('arrive_') > -1){
+            var arrive_value =  getParam('sclayer');
+            if(arrive_value.indexOf('arrive_ganm') > -1) {
+                modal('#modal-notice-checkin-ganm');
+            } else if (arrive_value.indexOf('arrive_busan') > -1) {
+                modal('#modal-notice-checkin-busan');
+            } else if (arrive_value.indexOf('arrive_village') > -1) {
+                modal('#modal-notice-checkin-village');
+            } else if (arrive_value.indexOf('arrive_atbusan') > -1) {
+                modal('#modal-notice-checkin-atbusan');
+            }
+        } else {
+            if(location_param.indexOf('guide') > -1) {
+                modal('#modal-notice-checkinMessage');
+            } else if (location_param.indexOf('arrive') > -1) {
+                modal('#modal-notice-checkin');
+            }
+        }
+    }
+
+    $(document).on('click','#appUtils .appUtils__list button:not("#btn_katalkconsult,#btn_journeycon,#btn_stamptour,#btn_journeycalendar,#btn_cart,#btn_coupon")', function() {
+        reqDataApp("validationForMobileKey");   //체크아웃 날짜 지난 키 삭제
+        var target = this.id;
+        var plfDataSet = this.dataset.plf;
+
+        if((this.id == 'btn_checkin' || this.id == 'btn_checkout' || this.id == 'btn_mobilekey') && plfDataSet != null) {
+            getIsLogin(function(result) { //로그인 로직 삭제 예정--
+                if (result == true) {
+                    if(detailPlatform !== plfDataSet) {
+                        //reqGps(target + ',' + detailPlatform);
+                        reqLocation(target + ',' + detailPlatform);
+                    } else {
+                        //reqGps(target + ',' + plfDataSet);
+                        reqLocation(target + ',' + plfDataSet);
+                    }
+                } else {
+                    location.href = '/ko/login';
+                }
+            });
+
+            //checkGPS('37.62671953658062', '127.4826042131682', this.id+",CHORD");
+        }else if(this.id === 'btn_qrlogin') {
+            var platform = (detailPlatform == null || detailPlatform == '') ? 'ANANTI' : detailPlatform;
+            savePageLog(platform,'QRLOGIN','CLICK','','','','','','');
+        } else {
+            //reqGps(this.id);
+            reqLocation(this.id);
+        }
+    });
+
+    $("#btnCheckOutProc").on('click',function(){
+        var $roomData = $("#reservationOutList input[name='smartCheckin']:checked").data('room-data');
+        var now = new Date();
+        var now_hhmm = now.getHours().toString() + (now.getMinutes().toString().length == 1 ? '0' + now.getMinutes().toString() : now.getMinutes().toString())
+
+        if(!$("#reservationOutList input[name='smartCheckin']").is(':checked')){
+            alertLayer('객실을 선택해 주세요.')
+            return;
+        }
+
+        if($roomData.res_CheckOut_Possible == 'N') {
+            alertLayer('회원 인증이 완료되지 않아 모바일 체크아웃을 진행할 수 없습니다.<br>프론트 방문 부탁 드립니다.');
+            return
+        }
+
+        if($roomData.is_multi_pkg == 'Y') {
+            alertLayer('멀티 투숙 상품의 경우<br>프론트에서 체크아웃 진행해 주세요.');
+            return
+        }
+
+        if((now_hhmm - $roomData.res_dtim.replace(':','')) > 40) {
+            alertLayer('모바일 체크아웃 시간이 초과되어<br>진행할 수 없습니다.<br><br>프론트 방문 부탁 드립니다.');
+            return
+        }
+
+        if(!$("input[name='checkoutAgree1']").is(':checked')){
+            alertLayer('체크아웃 안내에 동의 부탁드립니다.');
+            return;
+        }
+        if(!$("input[name='checkoutAgree2']").is(':checked')){
+            alertLayer('잊고 가시는 물건이 없는지 체크해주세요.');
+            return;
+        }
+
+        confirmLayer('체크아웃 후에는 객실 정비를 위해<br>직원이 방문합니다.<br>계속 하시겠습니까?', function() {
+            if(!$("input[name='checkoutAgree3']").is(':checked')) {
+
+                $.ajax({
+                    url: "/check-in/checkOutProcess_platform?sitecode=" + detailPlatform + "&resFolio="+$roomData.res_Folio,
+                    method: "post",
+                    type: "json",
+                    contentType: "application/json",
+                    success: function (result) {
+                        if(result.code===200 || result.code===210){
+                            $("#checkOutResFolio").text('예약번호 : '+$roomData.res_Folio);
+                            $("#checkOutRoomInfo").text($roomData.rm_Desc+' '+$roomData.rm_No+'호');
+
+                            $('#btn_checkout_complete_pay').hide();
+                            $('#btn_checkout_complete_basic').removeClass('d-none').show();
+
+
+                            $("#checkOutDateTime").text('체크아웃 일시 : '+moment().format('YYYY년 MM월 DD일 HH시 mm분'));
+                            $("#modal-checkout .backdrop").click();
+
+                            if(result.code===210) {
+                                alertLayer(result.message, function() {
+                                    modal(document.getElementById('btnCheckOutProc'));
+                                });
+                            } else {
+                                modal(document.getElementById('btnCheckOutProc'));
+                            }
+
+                            reqDataApp('deleteAllMobileKey');
+
+                        } else if(result.code===209 && detailPlatform !== 'CHORD') {
+                            fn_checkout_direct_pay();
+                        } else{
+                            alertLayer(result.message)
+                        }
+                    }
+                });
+            } else {
+                //minibar 선택
+                fn_minibarlist();
+            }
+
+        });
+    })
+
+    $("body").on("click", "#cardCheckIn",function(){
+        var roomNo = $(this).attr('roomNo');
+        var roomId = $(this).attr('roomId');
+        var dong = $(this).attr('dong');
+        var resFolio = $(this).attr('resFolio');
+        var roomView = $(this).attr('view');
+
+        if(detailPlatform == 'CHORD') {
+            $.ajax({
+                url: "/check-in/registCardCheck_platform?bsns=24&resFolio="+resFolio+"&roomNo="+roomNo,
+                method: "get",
+                type: "json",
+                contentType: "application/json",
+                success: function (result) {
+                    //result.code = 200;
+                    if(result.code === 200){
+                        $.ajax({
+                            url: "/check-in/checkInProcess_platform?bsns=24" + "&resFolio=" + resFolio,
+                            method: "get",
+                            type: "json",
+                            contentType: "application/json",
+                            success: function (result) {
+                                if (result.code === 200 || result.code === 210) {
+                                    console.log(result)
+                                    reqDataApp(
+                                        "REQ_INIT_MOBILE_KEY",
+                                        {
+                                            basic: result.data.basic,
+                                            ext1: result.data.ext1,
+                                            ext2: result.data.ext2,
+                                            room: result.data.room,
+                                            checkin: result.data.checkin,
+                                            checkout: result.data.checkout,
+                                            reserveNo: result.data.reserveNo,
+                                            title1: result.data.title1,
+                                            title2: result.data.title2,
+                                        },
+                                        true
+                                    )
+                                    $("#modal-checkin-card .backdrop").click();
+                                    $("#checkInResFolio").text("예약번호 : " + resFolio);
+                                    $("#checkInRoomInfo").text(dong + "동 " + roomNo + '호');
+                                    // $('#btn_checkout i').addClass('icon-primary').removeClass('icon-gray');
+                                    var checkoutDate = result.data.checkout;
+
+                                    if(result.code === 210) {
+                                        alertLayer(result.message, function () {
+                                            modal(document.getElementById('cardCheckIn'), null, modalCheckin.openCallback);
+                                        });
+                                    } else {
+                                        modal(document.getElementById('cardCheckIn'), null, modalCheckin.openCallback);
+                                    }
+                                } else {
+                                    if(result.code != '9999') {
+                                        alertLayer(result.message);
+                                    }
+                                }
+                            }
+                        });
+                    }else{
+                        alertLayer(result.message,function(){
+                            //reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?projectName=ANANTI%5EOnlinePlatform&formName=M-REGICARD-PH&UB_MENUCODE=t_000%2Cr_000&UB_EMBED_VIEWER_MODE=false&REVE_SEQ=1&SOSOK_CODE=6&REVE_ACNO=' + resFolio)
+                            reqDataApp('showSubWebView','https://ubiform.ananti.kr/UBIFORM/UView5/index.jsp?UBOpener=editor&projectName=ANANTI%5EOnlinePlatform%5ERegicard&UB_EX_PROJECTCODE=&formName=M-REGICARD-PH&sosok=6&seq=1&acno=' + resFolio);
+                        });
+                    }
+                }
+            });
+        } else {
+            fn_checkincomplete($(this));
+        }
+    })
+    // $("#modal-checkin-room .checkinNext").click(function(){
+    //     if(!$("#modal-checkin-room input[name='smartCheckin']").is(':checked')){
+    //         alertLayer('객실을 선택해 주세요.');
+    //         return;
+    //     }
+    //     alertLayer('suc')
+    // });
+    $("body").on("click", "#modal-checkin-room .checkinNext",function(){
+        if(detailPlatform == 'CHORD') {
+            if(!$("#modal-checkin-room input:radio[name='smartCheckin']").is(':checked')){
+                alertLayer("객실을 선택해 주세요.");
+            }else{
+                var modalDiv = document.getElementById('modal-checkin-room').querySelector(".checkinNext")
+                var $radio = $("#modal-checkin-room input:radio[name='smartCheckin']:checked");
+                var roomId = $radio.attr('roomId');
+                var dong = $radio.attr('dong');
+                var resFolio = $radio.attr('resFolio');
+                var roomNo = $radio.attr('roomNo');
+                var roomView = $radio.attr('view');
+
+                var bsns = $radio.attr('bsns');
+
+                $.ajax({
+                    //url: "/check-in/roomBlock?resFolio=" + resFolio + "&roomNo=" + roomId,
+                    url: "/check-in/roomBlock_platform?bsns=" + bsns + "&resFolio=" + resFolio + "&roomCd=" + roomId,
+                    method: "get",
+                    type: "json",
+                    contentType: "application/json",
+                    success: function (result) {
+                        if (result.code === 200) {
+                            $("#cardCheckIn").attr('resFolio',resFolio)
+                            $("#cardCheckIn").attr('roomId',roomId)
+                            $("#cardCheckIn").attr('dong',dong)
+                            $("#cardCheckIn").attr('roomView',roomView)
+                            $("#cardCheckIn").attr('roomNo',roomNo)
+                            $("#modal-checkin-room .backdrop").click();
+                            modal(modalDiv, null, modalCheckin.openCallback);
+                            // reqDataApp('showSubWebView','http://report-server-2137341499.ap-northeast-2.elb.amazonaws.com:8080/UBIFORM/UView5/index.jsp?projectName=ANANTI%5EOnlinePlatform&formName=M-REGICARD-PS-01&UB_MENUCODE=t_000%2Cr_000&UB_EMBED_VIEWER_MODE=false&FOLIONO='+resFolio+'&stDt=2019-01-01&endDt=2019-12-31')
+                        }else{
+                            alertLayer('선택하신 객실이 마감되었습니다. 다른 객실을 선택해주세요.');
+                        }
+                    }
+                });
+            }
+        } else {
+            fn_checkin_roomlist_next();
+        }
+    })
+    $("body").on("click", "#modal-checkin-room input[name='smartCheckin']",function(){
+        var $radio = $("#modal-checkin-room input[name='smartCheckin']");
+        var roomNo = $(this).attr('roomNo');
+        var roomId = $(this).attr('roomId');
+        var resFolio = $(this).attr('resFolio');
+        var dong = $(this).attr('dong');
+        var roomView = $(this).attr('view');
+
+        console.log(roomNo+' '+roomId+' '+dong+' '+resFolio)
+        var infoText = '예약번호 '+resFolio+' / '+dong+'동 '+roomNo+'호 '+ roomView +' 선택'
+        $('#modal-checkin-room #checkinSelected').removeClass('d-none');
+        // $("#roomCheckInfo").children().remove()
+        $("#roomCheckInfo").html('<i class="icon icon-small icon-primary icon-checkbox margin-r-5"></i>'+infoText);
+    })
+    $("body").on("click", "#modal-checkin-room input[name='roomno']",function(){
+        var $radio = $("#modal-checkin-room input[name='smartCheckin']");
+        var roomNo = $(this).attr('roomNo');
+        var roomId = $(this).attr('roomId');
+        var resFolio = $(this).attr('resFolio');
+        var roomView = $(this).attr('view');
+        var bsns = $(this).attr('bsns');
+        var platform = $(this).attr('platform');
+
+        console.log(roomNo+' '+roomId+' '+resFolio)
+        var infoText = '예약번호 '+resFolio+' / '+roomNo+'호 '+ (roomView == null ? '' :  roomView +' 선택')
+        $('#modal-checkin-room #checkinSelected').removeClass('d-none');
+        // $("#roomCheckInfo").children().remove()
+        $("#roomCheckInfo").html('<i class="icon icon-small icon-primary icon-checkbox margin-r-5"></i>'+infoText);
+    })
+    $("body").on("change","#reservationList input[name='smartCheckin']",function(){
+        var $radio = $("#reservationList input[name='smartCheckin']");
+
+        if($radio.is(':checked')){
+            $("#modal-checkin #checkinNext").removeClass("btn-disabled")
+        }else{
+            $("#modal-checkin #checkinNext").addClass("btn-disabled")
+        }
+    })
+    $("#modal-checkin .checkinNext").click(function(){
+        var $roomData = $("#reservationList input[name='smartCheckin']:checked").data('room-data');
+        console.log('tt')
+        console.log($roomData)
+
+        if(detailPlatform == 'CHORD') {
+            var nowTime = new Date().getHours();
+            var time_split = $roomData.res_Checkin_Time.split(':');
+            var unablecheckin = $roomData.unablecheckin;
+
+            if(unablecheckin != null && unablecheckin == 'Y') {
+                alertLayer('고객 확인이 필요한 예약번호입니다.');
+                return false;
+            }
+
+            if(nowTime < time_split[0]){
+                $('#alertLayer').css('z-index', 15001);
+                alertLayer('해당 예약건은 ' + time_split[0] + '시 이후 체크인 가능합니다.');
+                return false;
+            }
+
+            $("#modal-checkin .backdrop").click();
+            //페이스체크
+            if(($roomData.secretType != null && $roomData.secretType == 'N') || ($roomData.secret_Type != null && $roomData.secret_Type == 'N')){
+                reqFace($roomData.res_Cmno);
+                $("#checkIn-userInfo").html("환영합니다.<br>"+$roomData.res_Name+"님의 반가운 얼굴이 확인 되었습니다.")
+            }else{
+                var modalDiv = document.getElementById('modal-checkin-check').querySelector(".checkinNext")
+                //var url = "/check-in/getAvailRoom?bsns=" + $roomData.resBsns+"&resFolio="+$roomData.resFolio;
+                var url = "/check-in/getAvailRoom_V1?bsns=" + $roomData.res_Bsns+"&resFolio="+$roomData.res_Folio+"&rmDnm=" + $roomData.rm_Dnm+"&rmNo=" + $roomData.rm_No;
+                $.ajax({
+                    url: url,
+                    async:true,
+                    dataType: "html",
+                    success: function (result) {
+                        if(result){
+                            $("#checkInRoomDiv").html(result)
+                            setTimeout(function () {
+                                new Swiper('#modal-checkin-room .swiper-container.slide-free', {
+                                    slidesPerView: 'auto',
+                                    freeMode: true,
+                                    spaceBetween: 10
+                                });
+                                // $("#modal-checkin-check .backdrop").click();
+                                modal(modalDiv, null, modalCheckin.openCallback);
+
+                                if($roomData.rm_Dnm == "1" && $roomData.rm_No != "") {
+                                    alertLayer($roomData.res_Name + '님께 배정된 객실은 (' + $roomData.rm_Desc + ') ' + $roomData.rm_No + ' 입니다.', function() {
+                                        $('#modal-checkin-room .checkinNext').click();
+                                    });
+                                }
+                            }, 100);
+                            // if (result.data.length > 0) {
+                            //     ckInRoomInfoDraw(result.data,modalDiv);
+                            // }
+
+                        }else{
+                            alertLayer("예약 내역이 존재하지 않습니다.");
+                        }
+
+                    }
+                });
+                modal(modalDiv)
+            }
+        } else {
+            var nowTime = new Date().getHours();
+            var time_split = $roomData.res_Checkin_Time.split(':');
+            var unablecheckin = $roomData.unablecheckin;
+            $('#alertLayer').css('z-index', 15001);
+
+            if(unablecheckin != null && unablecheckin == 'Y') {
+                alertLayer('고객 확인이 필요한 예약번호입니다.');
+                return false;
+            }
+
+            if(nowTime < time_split[0]){
+                alertLayer('해당 예약건은 ' + time_split[0] + '시 이후 체크인 가능합니다.');
+                return false;
+            }
+
+            $("#modal-checkin .backdrop").click();
+            fn_checkin_facechk_or_nextstep($roomData);
+        }
+    })
+    $("#modal-checkin-check .checkinNext").click(function(){
+        var $roomData = $("#reservationList input[name='smartCheckin']:checked").data('room-data');
+        console.log($roomData)
+        var modalDiv = this;
+        var url = '';
+        if(detailPlatform == "CHORD") {
+            //url = "/check-in/getAvailRoom?bsns="+$roomData.resBsns+"&resFolio="+$roomData.resFolio;
+            url = "/check-in/getAvailRoom_V1?bsns="+$roomData.res_Bsns+"&resFolio="+$roomData.res_Folio+"&rmDnm=" + $roomData.rm_Dnm+"&rmNo=" + $roomData.rm_No;
+        } else {
+            url = "/check-in/getAvailRoom_Platform?bsns="+$roomData.res_Bsns+"&resFolio="+$roomData.res_Folio+"&rmDnm=" + $roomData.rm_Dnm+"&rmNo=" + $roomData.rm_No;
+        }
+
+        $.ajax({
+            url: url,
+            async:true,
+            dataType: "html",
+            success: function (result) {
+                if(result){
+                    $("#checkInRoomDiv").html(result)
+                    setTimeout(function () {
+                        new Swiper('#modal-checkin-room .swiper-container.slide-free', {
+                            slidesPerView: 'auto',
+                            freeMode: true,
+                            spaceBetween: 10
+                        });
+                        $("#modal-checkin-check .backdrop").click();
+                        modal(modalDiv, null, modalCheckin.openCallback);
+
+                        if($roomData.rm_Dnm == "1" && $roomData.rm_No != "") {
+                            alertLayer($roomData.res_Name + '님께 배정된 객실은 (' + $roomData.rm_Desc + ') ' + $roomData.rm_No + ' 입니다.', function() {
+                                $('#modal-checkin-room .checkinNext').click();
+                            });
+                        }
+                    }, 100);
+                    // if (result.data.length > 0) {
+                    //     ckInRoomInfoDraw(result.data,modalDiv);
+                    // }
+
+                }else{
+                    alertLayer("예약 내역이 존재하지 않습니다.");
+                }
+
+            }
+        });
+        // $("#modal-checkin .backdrop").click();
+        // modal(this)
+    })
+
+    $('#appUtilsBtn').on('click', function() {
+        if($('#chatDiv').hasClass('is-expanded')) {
+            $("#chatDiv").removeClass('is-expanded');
+            $("input:checkbox[id='appUtilsBtnToggle']").prop("checked", false);
+        } else {
+/*            getIsLogin(function(result) { //로그인 로직 삭제 예정--
+                if (result == true) {*/
+                    //reqGps('btnActiveCheck');
+                    reqLocation('btnActiveCheck');
+/*                }
+            });*/
+        }
+    });
+
+    $(document).on('click','#modal-smartkey .icon-key', function() {
+        keyicontouch++;
+        if(keyicontouch >= 3) {
+            keyicontouch = 0;
+            $('#modal-smartkey [data-modal="close"]').click();
+            reqDataApp('deleteAllMobileKey');
+            alertLayer('모바일 키가 삭제 되었습니다.');
+        }
+    });
+});

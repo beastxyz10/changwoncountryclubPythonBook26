@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>부킹 테스트 페이지</title>
+    <script>
+        function bookTime(time) {
+            // 랜덤하게 성공/실패 결정
+            var success = Math.random() > 0.5; // 50% 확률
+
+            if (success) {
+                // 예약 성공 -> 완료 페이지로 이동
+                location.href = "success.html";
+            } else {
+                // 예약 실패 -> 경고창 띄우고 리로드
+                alert("다른 회원이 예약중인 시간입니다");
+                location.reload();
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>예약 가능한 시간 선택</h1>
+    <button onclick="bookTime('06:00')">06:00</button>
+    <button onclick="bookTime('07:00')">07:00</button>
+    <button onclick="bookTime('08:00')">08:00</button>
+    <button onclick="bookTime('09:00')">09:00</button>
+    <button onclick="bookTime('10:00')">10:00</button>
+</body>
+</html>

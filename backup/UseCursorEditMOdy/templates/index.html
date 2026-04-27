@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>수입제재목 재고 관리</title>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <style>
+        body { font-family: '맑은 고딕', Arial, sans-serif; margin: 30px; }
+        h1 { margin-bottom: 20px; }
+        .form-section { margin-bottom: 30px; }
+        .summary-table { margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <h1>수입제재목 재고 관리</h1>
+
+    <div class="form-section">
+        <h3>수입제재목 등록</h3>
+        <form id="lumberForm">
+            업체명: <input name="company_name" required>
+            B/L: <input name="bl_number" required>
+            입고일: <input name="import_date" type="date" required>
+            L: <input name="L" type="number" required style="width:60px;">
+            W: <input name="W" type="number" required style="width:60px;">
+            T: <input name="T" type="number" required style="width:60px;">
+            규격: <input name="spec" required>
+            수입량(밴딩): <input name="import_amount" type="number" required style="width:80px;">
+            비고: <input name="remarks">
+            <button type="submit">등록</button>
+        </form>
+    </div>
+
+    <div class="form-section">
+        <h3>입고내역 등록</h3>
+        <form id="historyForm">
+            수입제재목ID: <input name="lumber_id" type="number" required style="width:60px;">
+            입고일: <input name="in_date" type="date" required>
+            입고량: <input name="in_amount" type="number" required style="width:60px;">
+            <button type="submit">등록</button>
+        </form>
+    </div>
+
+    <h3>재고 현황</h3>
+    <table id="lumberTable" class="display" style="width:100%">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>업체명</th>
+                <th>B/L</th>
+                <th>입고일</th>
+                <th>L</th>
+                <th>W</th>
+                <th>T</th>
+                <th>규격</th>
+                <th>수입량(밴딩)</th>
+                <th>입고합계</th>
+                <th>잔량(밴딩)</th>
+                <th>비고</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <div class="summary-table">
+        <h3>규격별 잔량 합계</h3>
+        <table id="summaryTable" class="display" style="width:300px;">
+            <thead>
+                <tr>
+                    <th>사이즈별</th>
+                    <th>잔량(밴딩)</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script>
+        function loadLumber() {
+            $.get('/api/lumber', function(data) {
+                let table = $('#lumberTable').DataTable();
+                table.clear();
+                data.forEach(row => {
+                    table.row.add([
+                        row.id, row.company_name, row.bl_number, row.import_date,
+                        row.L, row.W, row.T, row.spec, row.import_amount,
+                        row.total_in, row.remain, row.remarks
+                    ]);
+                });
+                table.draw();
+            });
+        }
+        function loadSummary() {
+            $.get('/api/summary', function(data) {
+                let table = $('#summaryTable').DataTable();
+                table.clear();
+                data.forEach(row => {
+                    table.row.add([row.spec, row.remain_sum]);
+                });
+                table.draw();
+            });
+        }
+        $(document).ready(function() {
+            $('#lumberTable').DataTable();
+            $('#summaryTable').DataTable({ searching: false, paging: false, info: false });
+            loadLumber();
+            loadSummary();
+
+            $('#lumberForm').submit(function(e) {
+                e.preventDefault();
+                let form = $(this).serializeArray();
+                let data = {};
+                form.forEach(f => data[f.name] = f.value);
+                $.ajax({
+                    url: '/api/lumber',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(data),
+                    success: function() {
+                        loadLumber();
+                        loadSummary();
+                        $('#lumberForm')[0].reset();
+                    }
+                });
+            });
+
+            $('#historyForm').submit(function(e) {
+                e.preventDefault();
+                let form = $(this).serializeArray();
+                let data = {};
+                form.forEach(f => data[f.name] = f.value);
+                $.ajax({
+                    url: '/api/history',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(data),
+                    success: function() {
+                        loadLumber();
+                        loadSummary();
+                        $('#historyForm')[0].reset();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,29 @@
+
+
+const checkNullOrEmptyValue = function (parameter) {
+    if (parameter === null || parameter === '' || parameter === undefined || parameter === 'null') return false;
+    return true;
+};
+
+const textareaConverterBr = function(str) {
+    if (str !== null) {
+        str = str.replace(/(?:\r\n|\r|\n)/g, '<br/><br/>');
+        return str;
+    }
+}
+
+function fn_GlobalChange() {
+    var gubun = location.pathname.split('/')[1];
+    if(gubun === 'en') {
+        // window.open(location.href.replace('/en','/ko'));
+        location.href = location.href.replace('/en','/ko');
+    } else {
+        // window.open(location.href.replace('/ko','/en'));
+        location.href = location.href.replace('/ko','/en');
+    }
+}
+
+function fn_GlobalChange_V1(lang) {
+    var current_lang = location.pathname.split('/')[1];
+    location.href = location.href.replace('/' + current_lang,'/' + lang);
+}

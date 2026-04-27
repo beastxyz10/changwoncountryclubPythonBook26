@@ -1,0 +1,408 @@
+<html lang="ko"><head><script>console.log('tid=ce86bdb5ed32454ab6207e7b4d060007', 'dtmChangeDate=', 'reserveType=1');</script>
+
+
+
+
+<meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"><meta http-equiv="Content-Type" content="text/html; charset=utf-8 "><meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"><meta name="naver-site-verification" content="5ffb58c74c4181893798caee5918b8bc8331329e"><title>
+	창원컨트리클럽
+</title><link rel="stylesheet" type="text/css" href="/css/common.css?v=1.3"><link rel="stylesheet" type="text/css" href="/css/sub.css?v=1.2"><link rel="stylesheet" type="text/css" href="/css/board.css"><link rel="stylesheet" type="text/css" href="/css/member.css"><link rel="stylesheet" type="text/css" href="/css/form.css"><link rel="stylesheet" type="text/css" href="/css/reserv.css">
+
+    <style type="text/css">
+
+        #ajaxLoadingBox {
+            position:fixed; 
+            width:100%;
+            height:100%;
+		    top:0;
+		    left:0;
+    		z-index: 99999999;
+            background-color:#ccc;
+            filter:alpha(opacity=50);
+		    -moz-opacity:0.5;
+		    opacity : 0.5;
+        }
+        #ajaxLoadingBox > div {
+            position:absolute;
+            top:50%;
+		    left:50%;
+            width:270px; height:63px; padding-top:15px; line-height:25px;
+        }
+
+    </style>
+
+<script type="text/javascript" src="/js/jquery.min.js"></script>
+<script type="text/javascript" src="/js/common.js"></script>
+<script type="text/javascript" src="/js/mobile-detect.min.js"></script>
+<script type="text/javascript" src="/js/fnCommon.js?v=1.0.0"></script>
+<script type="text/javascript" src="/js/checkForm.js"></script>
+<script type="text/javascript" src="/js/signUp.js"></script>
+
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
+    <script type="text/javascript" src="/js/datepicker-ko.js"></script>
+
+
+
+<script>		
+	var vMobileDetect = new MobileDetect(window.navigator.userAgent);
+	if (vMobileDetect.mobile() && 'M' != '') {
+		location.replace('/Mobile');
+	}
+</script>
+
+<script>
+				
+    $.ajaxSetup({
+        beforeSend: function () {
+            $('#ajaxLoadingBox').show();
+        },
+        complete: function () {
+            $('#ajaxLoadingBox').hide();
+        },
+        success: function () { }
+    });
+
+    var vPageProcessLayer = null;
+
+    $(function () {
+
+        vPageProcessLayer = $("#PageProcessLayer");
+
+    });
+
+</script>
+
+    
+    <style type="text/css">
+        .timeTbl tr td {
+            text-align:left;
+        }
+        .btn-booktime-change {
+            display:inline-block;margin-left:35px;color:dodgerblue !important;border-color:dodgerblue !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ajaxLoadingBox" style="display:none;">
+        <div>
+            <span><img src="/images/spinner.gif" style="padding-top:9px;" border="0"></span>
+            <span style="float:right;font-size:15px;">현재 처리 중 입니다.<br>잠시만 기다려주시기 바랍니다.</span>
+        </div>
+    </div>
+
+<div id="wrap">
+        
+        
+
+    <div id="header">
+		<div class="inner">
+			<!-- <div class="all_menu"><a href="#"><img src="../images/all_menu.png"></a></div> -->
+			
+
+            <ul class="lnb">
+				<li><a href="/Member/Logout.aspx">로그아웃</a></li>
+				<li><a href="/Member/Edit.aspx">회원정보수정</a></li>
+			</ul>
+
+			
+
+			<h1><a href="/main/Default.aspx"><img src="/images/logo.png" alt="창원"></a></h1>
+			<div id="gnb">
+				<ul>
+					<li><a href="/Club/Greeting.aspx">클럽소개</a></li>
+					<li><a href="/Course/Course.aspx">코스안내</a></li>
+					<li><a href="/Facility/ClubHouse.aspx">부대시설</a></li>
+					<li><a href="/Reservation/CompanionPost.aspx">인터넷예약</a></li>
+					<li><a href="/Info/LocalRule.aspx">경기안내</a></li>
+					<li><a href="/Guide/Operation.aspx">이용안내</a></li>
+					<li><a href="/Board/List.aspx?bid=noti">커뮤니티</a></li>
+					<li><a href="/mBoard/List.aspx?bid=mnoti">회원전용코너</a></li>
+				</ul>
+			</div>
+		</div>
+	</div>
+	<div id="sub_menu">
+		 
+		<div class="sub_bg" style="height:330px;">
+		
+			<div class="smwrap">
+				<ul>
+					<li>클럽소개</li>
+					<li><a href="/Club/Greeting.aspx">인사말</a></li>
+					<li><a href="/Club/Company.aspx">회사소개</a></li>
+					<li><a href="/Club/History.aspx">연혁</a></li>
+					<li><a href="/Club/Rule.aspx">정관 및 각종규정</a></li>
+					<li><a href="/Club/Map.aspx">오시는길</a></li>
+				</ul>
+				<ul>
+					<li>코스안내</li>
+					<li><a href="/Course/Course.aspx">코스소개</a></li>
+					<li><a href="/Course/CourseAttack.aspx">코스공략도</a></li>
+				</ul>
+				<ul>
+					<li>부대시설</li>
+					<li><a href="/Facility/ClubHouse.aspx">클럽하우스</a></li>
+					<li><a href="/Facility/Restaurant.aspx">레스토랑</a></li>
+					<li><a href="/Facility/Locker.aspx">락카실</a></li>
+					<li><a href="/Facility/Proshop.aspx">프로샵</a></li>
+					<li><a href="/Facility/ShadeHouse.aspx">그늘집</a></li>
+					<li><a href="/Facility/Menu.aspx">추천메뉴</a></li>
+				</ul>
+				<ul>
+					<li>인터넷예약</li>
+					<li><a href="/Reservation/ReservInfo.aspx">예약안내</a></li>
+					<li><a href="/Reservation/CompanionPost.aspx">인터넷예약</a></li>
+					<li><a href="/Reservation/ReservationList.aspx">예약확인/변경/취소</a></li>
+					<li id="ctl00_TopHeader_liRecommendMenu"><a href="/Reservation/RecommendList.aspx">양도추천서 사용 현황</a></li>
+					<li id="ctl00_TopHeader_liRequestMenu"><a href="/Reservation/RequestList.aspx">동반할인 사용 현황</a></li>
+                    <li><a href="/Reservation/CancelList.aspx">예약취소내역</a></li>
+					<li><a href="/Reservation/RemainTime.aspx">예약잔여시간</a></li>
+					<li><a href="/Reservation/CompanionChange.aspx">동반자변경/할인유무</a></li>
+					<li><a href="/Reservation/Devolve.aspx">양도추천서</a></li>
+				</ul>
+				<ul>
+					<li>경기안내</li>
+					<li><a href="/Info/LocalRule.aspx">로컬룰</a></li>
+					<li><a href="/Info/HonorList.aspx">명예의전당</a></li>
+					<li><a href="/Info/Handicap.aspx">핸디캡조회</a></li>
+				</ul>
+				<ul>
+					<li>이용안내</li>
+					<li><a href="/Guide/Operation.aspx">운영 및 이용지침</a></li>
+					<li><a href="/Guide/UseTerms.aspx">표준이용약관</a></li>
+					<li><a href="/Guide/Greenfee.aspx">이용요금</a></li>
+					<li><a href="/Guide/GolfRule.aspx">골프규칙</a></li>
+				</ul>
+				<ul>
+					<li>커뮤니티</li>
+					<li><a href="/Board/List.aspx?bid=noti">공지사항</a></li>
+					<li><a href="/Board/List.aspx?bid=free">자유게시판</a></li>
+					<li><a href="/Board/GalleryList.aspx?bid=gallery">갤러리</a></li>
+					<li><a href="/Board/FileList.aspx">자료실</a></li>
+					<li><a href="/Board/List.aspx?bid=join">조인방</a></li>
+					<li><a href="/Board/GolfPartner.aspx">업무제휴골프장</a></li>
+				</ul>
+				<ul>
+					<li>회원전용코너</li>
+					<li><a href="/mBoard/List.aspx?bid=mnoti">공지사항</a></li>
+					<li><a href="/mBoard/List.aspx?bid=mbod">신문고</a></li>
+					<li><a href="/mBoard/List.aspx?bid=mjoin">조인방</a></li>
+					<li><a href="/mBoard/List.aspx?bid=drt1">이사회</a></li>
+					<li><a href="/mBoard/List.aspx?bid=drt2">총무분과위원회</a></li>
+					<li><a href="/mBoard/List.aspx?bid=drt3">경기분과위원회</a></li>
+				</ul>
+			</div>
+		</div>
+	</div>
+        
+    <div id="sub_visual" class="sub_reserve">
+		<h2>인터넷예약</h2>
+	</div>
+	<div class="menu_sub">
+		<ul style="display: flex; flex-direction: row; justify-content: center; width: 1600px !important;">
+			<li><a href="/Reservation/ReservInfo.aspx">예약안내</a></li>
+			<li><a href="/Reservation/CompanionPost.aspx" class="on">인터넷예약</a></li>
+			<li><a href="/Reservation/ReservationList.aspx">예약 확인/시간 변경/취소</a></li>
+    
+            <li><a href="/Reservation/RecommendList.aspx">양도추천서 사용현황</a></li>
+            <li><a href="/Reservation/RequestList.aspx">동반할인 사용현황</a></li>
+    
+            <li><a href="/Reservation/CancelList.aspx">예약취소내역</a></li>
+			<li><a href="/Reservation/RemainTime.aspx">예약잔여시간</a></li>
+			<li><a href="/Reservation/CompanionChange.aspx">동반자변경/할인유무</a></li>
+			<li><a href="/Reservation/devolve.aspx">양도추천서</a></li>
+		</ul>
+	</div>
+
+
+        
+    <form name="form1" id="form1" method="post" action="ReservationCheck.aspx">
+        <input type="hidden" id="PageConnectAuthCode" name="PageConnectAuthCode" value="EC7OBKQKNPAHI9OPGGP5">
+        
+        <input type="hidden" id="dtmChangeDate" name="dtmChangeDate" value="">
+
+        <input type="hidden" name="strChangeCode" value="">
+        <input type="hidden" name="strChangeTime" value="">
+        <input type="hidden" name="strChangeSeq" value="">
+        <input type="hidden" name="strChangeDayGubun" value="">
+        <input type="hidden" name="strChangeHole" value="">
+        <input type="hidden" name="strReserveType" value="1">
+        <input type="hidden" name="strClubCode" value="">
+
+        <input type="hidden" name="gmemno2" id="gmemno2" value="">
+        <input type="hidden" name="gmemno3" id="gmemno3" value="">
+        <input type="hidden" name="gmemno4" id="gmemno4" value="">
+        <input type="hidden" name="memno2" id="memno2" value="">
+        <input type="hidden" name="memno3" id="memno3" value="">
+        <input type="hidden" name="memno4" id="memno4" value="">
+        <input type="hidden" name="memberName2" id="memberName2" value="1">
+        <input type="hidden" name="memberName3" id="memberName3" value="2">
+        <input type="hidden" name="memberName4" id="memberName4" value="3">
+        <input type="hidden" name="userMobile2" id="userMobile2" value="">
+        <input type="hidden" name="userMobile3" id="userMobile3" value="">
+        <input type="hidden" name="userMobile4" id="userMobile4" value="">
+        <input type="hidden" name="memGubun2" id="memGubun2" value="">
+        <input type="hidden" name="memGubun3" id="memGubun3" value="">
+        <input type="hidden" name="memGubun4" id="memGubun4" value="">
+        <input type="hidden" name="dcRequest" id="dcRequest" value="">
+
+        <input type="hidden" name="strReserveDate">
+        <input type="hidden" name="strReserveTime">
+        <input type="hidden" name="strCourseCode">
+        <input type="hidden" name="strDayGubun">
+        <input type="hidden" name="strSeq">
+        <input type="hidden" name="strHole">
+        <input type="hidden" name="DaegiYN1">
+        <input type="hidden" name="CadYN">
+        <input type="hidden" name="strBu">
+        <input type="hidden" name="strGreenFee">
+        <input type="hidden" name="strGreenFee1">
+
+        <div id="container" class="clfix reserve">
+		    <p class="subTxt01">오늘은 <strong>2026년 04월 23일 목요일</strong>입니다.<br> 날짜 및 코스, 시간을 선택해 주십시오. (* 당일은 전화예약만 가능합니다.)</p>	
+		    <h3 class="subTit02 mt30">날짜 및 코스, 시간 선택</h3>
+		    <table class="timeTbl">
+			    <colgroup>
+				    <col width="150px"><col width="100px"><col width="*">
+			    </colgroup>
+			    <tbody>
+				    <tr>
+					    <th>일자</th> 
+					    <th colspan="2">예약 가능한 코스 및 시간</th> 
+				    </tr>
+
+                    <tr><td rowspan="2">2026.05.07 (목)</td><td>서</td><td class="txtAL"><a href="javascript:goResvTime('20260507', '0630', '11', '1', '00001', '18')" class="bnh-btn reservBtn">06:30</a><a href="javascript:goResvTime('20260507', '0651', '11', '1', '00004', '18')" class="bnh-btn reservBtn">06:51</a><a href="javascript:goResvTime('20260507', '0712', '11', '1', '00007', '18')" class="bnh-btn reservBtn">07:12</a><a href="javascript:goResvTime('20260507', '0733', '11', '1', '00010', '18')" class="bnh-btn reservBtn">07:33</a><a href="javascript:goResvTime('20260507', '0754', '11', '1', '00013', '18')" class="bnh-btn reservBtn">07:54</a><a href="javascript:goResvTime('20260507', '0822', '11', '1', '00017', '18')" class="bnh-btn reservBtn">08:22</a><a href="javascript:goResvTime('20260507', '0850', '11', '1', '00021', '18')" class="bnh-btn reservBtn">08:50</a><a href="javascript:goResvTime('20260507', '1132', '11', '1', '00022', '18')" class="bnh-btn reservBtn">11:32</a><a href="javascript:goResvTime('20260507', '1146', '11', '1', '00024', '18')" class="bnh-btn reservBtn">11:46</a><a href="javascript:goResvTime('20260507', '1200', '11', '1', '00026', '18')" class="bnh-btn reservBtn">12:00</a><a href="javascript:goResvTime('20260507', '1345', '11', '1', '00041', '18')" class="bnh-btn reservBtn">13:45</a><a href="javascript:goResvTime('20260507', '1406', '11', '1', '00044', '18')" class="bnh-btn reservBtn">14:06</a></td></tr><tr><td>동</td><td class="txtAL"><a href="javascript:goResvTime('20260507', '0630', '22', '1', '00045', '18')" class="bnh-btn reservBtn">06:30</a><a href="javascript:goResvTime('20260507', '0658', '22', '1', '00049', '18')" class="bnh-btn reservBtn">06:58</a><a href="javascript:goResvTime('20260507', '0726', '22', '1', '00053', '18')" class="bnh-btn reservBtn">07:26</a><a href="javascript:goResvTime('20260507', '0815', '22', '1', '00060', '18')" class="bnh-btn reservBtn">08:15</a><a href="javascript:goResvTime('20260507', '0836', '22', '1', '00063', '18')" class="bnh-btn reservBtn">08:36</a><a href="javascript:goResvTime('20260507', '1139', '22', '1', '00067', '18')" class="bnh-btn reservBtn">11:39</a><a href="javascript:goResvTime('20260507', '1200', '22', '1', '00070', '18')" class="bnh-btn reservBtn">12:00</a><a href="javascript:goResvTime('20260507', '1352', '22', '1', '00086', '18')" class="bnh-btn reservBtn">13:52</a><a href="javascript:goResvTime('20260507', '1406', '22', '1', '00088', '18')" class="bnh-btn reservBtn">14:06</a></td></tr>
+
+			    </tbody>
+		    </table>
+		    <div class="bigBtn">
+			    <a href="javascript:location.href='ReservationList.aspx'">취소</a>
+			    <a href="javascript:location.reload()" class="col">새로고침</a>
+		    </div>
+	    </div>
+    </form>
+
+    <script type="text/javascript">
+        $(function () {
+            // 페이지 스크롤
+            $('html, body').animate({ scrollTop: 320 }, 500);
+
+//			var text = '';
+//            var chk_day = false;
+//            $(".timeTbl").find("tr").each(function () {
+//
+//                text = $(this).find("td").eq(0).text();
+//                if(text == '2020.10.25 (일)'){
+//                    chk_day = true;
+//                }
+//            });
+//            if(chk_day){
+//                $(".timeTbl").find("tr").each(function () {
+//
+//                    text = $(this).find("td").eq(0).text();
+//                    if(text == '2020.10.25 (일)'){
+//                        $(this).html('<td class="txt_sun">2020.10.25 (일)</td><td colspan="2" style="text-align:center;color:blue">2020년 회원친선 골프대회일 입니다</td>');
+//                    }
+//                });
+//            }else{
+//
+//                $(".timeTbl").find("tr").each(function () {
+//
+//                    text = $(this).find("td").eq(0).text();
+//                    if (text == '2020.10.24 (토)') {
+//                        $(this).after('<tr><td class="txt_sun">2020.10.25 (일)</td><td colspan="2" style="text-align:center;color:blue">2020년 회원친선 골프대회일 입니다.</td></tr>');
+//                    }
+//                });
+//            }
+        });
+
+        function goResvTime(strReserveDate, strReserveTime, strCourseCode, strDayGubun, strSeq, strHole) {
+            var f = document.getElementById('form1');
+
+            f.strReserveDate.value = strReserveDate;
+            f.strReserveTime.value = strReserveTime;
+            f.strCourseCode.value = strCourseCode;
+            f.strDayGubun.value = strDayGubun;
+            f.strSeq.value = strSeq;
+            f.strHole.value = strHole;
+            f.submit();
+        }
+
+        function goChangeBookTime(strReserveDate, strReserveTime, strCourseCode, strDayGubun, strSeq, strHole) {
+            if (confirm('예약일의 시간 변경만 가능합니다.\n변경하시겠습니까?')) {
+                var f = document.getElementById('form1');
+
+                f.dtmChangeDate.value = strReserveDate;
+                f.strChangeTime.value = strReserveTime;
+                f.strChangeCode.value = strCourseCode;
+                f.strChangeDayGubun.value = strDayGubun;
+                f.strChangeSeq.value = strSeq;
+                f.strChangeHole.value = strHole;
+                f.strReserveType.value = "3";
+                f.action = 'Reservation.aspx';
+                f.submit();
+            }
+            
+        }
+    </script>
+
+    <script>
+        (function () {
+          function reloadAsGET() {
+            // 같은 URL로 '탐색'하게 만들어 GET으로 새로 로드 (히스토리 추가 없이)
+              location.reload()
+          }
+
+          // F5
+          window.addEventListener('keydown', function (e) {
+            var key = e.key || e.keyCode;
+
+            // F5
+            if (key === 'F5' || key === 116) {
+              e.preventDefault();
+              reloadAsGET();
+              return;
+            }
+
+            // Ctrl+R (Windows/Linux) 또는 ⌘R (macOS)
+            if ((e.ctrlKey || e.metaKey) && (key === 'r' || key === 'R' || key === 82)) {
+              e.preventDefault();
+              reloadAsGET();
+              return;
+            }
+          }, { passive: false });
+        })();
+    </script>
+
+
+    <script async="" src="https://cwcc-cdn.botnhuman.com/resources/bnh/analyze/js/oB0eaJCqMggntahsFgSBnaxTR9T5FjrRiCOYRQWTihctvWHF9hm49p3T85R430TmEm7gttGvRp9M4HDOYU5OJEusdYToYJbLSi0jUNCOMhY4yDh3r5jnUorH4rLh2aoBYADKoFYA6rnvPKxcwM0GYX8ZwHykIv4Ko0PHdFXyYzkTBknMI4L1gPVRrLRhtFItwKrmKyku.js?v=20260423"></script>
+
+        
+
+<div id="footer"> 
+	<div class="inner">
+		<div class="foot_menu">
+			<strong><a href="/Member/Policy.aspx">개인정보처리방침</a></strong>
+		</div>
+		<p class="address mt20">경상남도 창원시 의창구 대봉로 137(봉림동 산50)  &nbsp;&nbsp;  <a href="tel:0552884112">T 055.288.4112</a>  &nbsp;&nbsp; F 055.288.4331 &nbsp;&nbsp;  통신판매업신고 2009-경남창원-00158</p>
+		<p class="copy">ⓒ 2020 Changwon CC. ALL RIGHT RESERVED</p>
+	</div>
+</div>
+
+
+
+        <div id="PageProcessLayer" style="display:none;">
+            <div style="width:270px; height:63px; padding-top:15px; line-height:25px; filter:alpha(opacity=30); opacity:0.3; -moz-opacity:0.3">
+                <span><img src="/images/spinner.gif" style="padding-top:9px;" border="0"></span>
+                <span style="float:right;font-size:15px;">현재 처리 중 입니다.<br>잠시만 기다려주시기 바랍니다.</span>
+            </div>
+        </div>
+
+</div>
+<script defer="" src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;de9f4891b32a4c7ba3c624fc918787fa&quot;,&quot;server_timing&quot;:{&quot;name&quot;:{&quot;cfCacheStatus&quot;:true,&quot;cfEdge&quot;:true,&quot;cfExtPri&quot;:true,&quot;cfL4&quot;:true,&quot;cfOrigin&quot;:true,&quot;cfSpeedBrain&quot;:true},&quot;location_startswith&quot;:null}}" crossorigin="anonymous"></script>
+
+
+
+</body></html>

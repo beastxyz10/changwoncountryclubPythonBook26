@@ -1,0 +1,109 @@
+function reservation_adscript(reservationData) {
+    try{
+        kakaoPixel('4160092726936383551').addToCart({
+            id: reservationData.rmname
+        });
+    }catch (e){
+
+    }
+
+}
+//접수 페이지 스크립트
+async function reservation_view_item(gaItem){
+    var dataObj = {
+        "event":  "view_item",
+        "ecommerce":  {
+            "items": [
+                {
+                    "item_id": gaItem.PTYPE,
+                    "item_name": gaItem.PNAME,
+                    "affiliation": gaItem.RSVN_GUBUN,
+                    "discount": "0",
+                    "item_brand": gaItem.BSNSNAME,
+                    "item_category": gaItem.RNAME,
+                    "item_category2": gaItem.RMSTRUCT,
+                    "price": gaItem.PRICE,
+                    "quantity": 1
+                }],
+            "currency": "KRW"
+        }
+    };
+    dataLayer.push(dataObj);
+}
+//접수 완료 페이지 스크립트
+async function reservation_suc(gaList, gaTamt){
+    var items = await getReservationItems(gaList);
+    var dataObj = {
+        "event": "add_to_cart",
+        "ecommerce": {
+            "transaction_id": gaList[0].ACNO,
+            "value": gaTamt,
+            "shipping": 0,
+            "currency": "KRW",
+            "coupon": gaList[0].CP_NM,
+            "items": items
+        }
+    };
+    dataLayer.push({ ecommerce: null });
+    dataLayer.push(dataObj);
+}
+
+// 결제완료 페이지 스크립트
+async function reservation_purchase(gaList, gaTamt){
+    var items = await getReservationItems(gaList);
+    var dataObj = {
+        "event": "purchase",
+        "ecommerce": {
+            "transaction_id": gaList[0].ACNO,
+            "value": gaTamt,
+            "shipping": 0,
+            "currency": "KRW",
+            "coupon": gaList[0].CP_NM,
+            "items": items
+        }
+    };
+    dataLayer.push({ ecommerce: null });
+    dataLayer.push(dataObj);
+
+    try {
+        if (items != null && items.length > 0) {
+            var price = 0;
+            if (items.length > 1) {
+                price = items.reduce((a, b) => a + parseInt(b.price), 0)
+            } else {
+                price = items[0].price;
+            }
+
+            var oProduct = {
+                prod_id : items[0].item_id.toString()// 필수입력    ( *적용값:  요금/패키지 코드 )
+                , pur_price :price.toString() //필수입력 ( *적용값: 결제 금액 )
+                , pur_cur :"KRW" //필수입력x, default = KRW ( *적용값: KRW )
+                , pur_quantity :"1" //필수입력x,default = 1 ( *적용값: 1 )
+            }
+
+            // 매출 측정 이벤트 발생시 아래 메소드 호출
+            ADPACKER.SCRIPT.purchase(oProduct);
+        }
+    } catch (ex) {
+    }
+}
+
+// 스크립트 상세 아이템 생성
+function getReservationItems(gaList){
+    var items = [];
+    for(var i = 0; i < gaList.length; i++){
+        items.push({
+            "item_id": gaList[i].PTYPE,
+            "item_name": gaList[i].PNAME,
+            "affiliation": gaList[i].RSVN_GUBUN,
+            "discount": ( (gaList[i].AMT*1) - (gaList[i].PRICE*1) ),
+            "item_brand": gaList[i].BSNSNAME,
+            "item_category": gaList[i].RNAME,
+            "item_category2": gaList[i].RMSTRUCT,
+            "price": gaList[i].PRICE,
+            "quantity": gaList[i].DAYS,
+            "index": i
+        })
+    }
+    return items;
+}

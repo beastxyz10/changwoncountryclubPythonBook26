@@ -1,0 +1,238 @@
+/**
+ * 페이징
+ * @param page
+ */
+function pagination(page){
+    var $frmSearch = $("form[name='frmSearch']");
+   $frmSearch.find("input[name='page']").val(page);
+    $frmSearch.submit();
+};
+/**
+ * 공통 게시판 목록 호출
+ */
+const goBoardList = function(){
+    let url = location.href.replace('#', '');
+    if(url.indexOf('?') == -1){
+        let tmpUrl = url.substring(0, url.lastIndexOf('/'));
+        url = url.substring(url.lastIndexOf('/')+1) == ''
+            ? tmpUrl.substring(0, tmpUrl.lastIndexOf('/'))
+            : url.substring(0, url.lastIndexOf('/'));
+    }else{
+        let tmpUrl = url.substring(0, url.lastIndexOf('/'));
+        url = (url.substring(0, url.indexOf('?')).substring(url.lastIndexOf('/')+1) == ''
+                ? tmpUrl.substring(0, tmpUrl.lastIndexOf('/'))
+                : url.substring(0, url.lastIndexOf('/')))
+            + url.substring(url.indexOf('?'));
+    }
+
+    location.href = url;
+}
+
+/**
+ * 공통 게시판 상세 호출
+ * @param postId
+ */
+const goBoardDetail = function(postId){
+    var url = location.href.replace('#', '');
+    if(url.indexOf('?') == -1){
+        url = url.substring(url.lastIndexOf('/')+1) == '' ? url + postId : url + '/' + postId;
+    }else{
+        url = url.substring(0, url.indexOf('?')).substring(url.lastIndexOf('/')+1) == ''
+            ? url.substring(0, url.lastIndexOf('?')) + postId + url.substring(url.indexOf('?'))
+            : url.substring(0, url.lastIndexOf('?')) + '/' + postId + url.substring(url.indexOf('?'));
+    }
+
+    location.href = url;
+}
+
+/**
+ * Cookie
+ * @type {{deleteCookie: cookie.deleteCookie, setCookie: cookie.setCookie, getCookie: (function(*=): *)}}
+ */
+
+const cookie = {
+    //cookie 생성
+    setCookie: function(cookieName, value, minute, domain){
+        var domainStr = "";
+        if(domain != undefined){
+            domainStr = "; domain=" + domain;
+        }
+
+        var exdate = new Date();
+        exdate.setMinutes(exdate.getMinutes() + minute);
+        var cookieValue = escape(value) + ((minute==null) ? ";path=/" : (";path=/;expires=" + exdate.toGMTString())) + domainStr;
+
+        document.cookie = cookieName + "=" + cookieValue;
+    },
+
+    setCookie_setDate: function(cookieName, value, date, domain){
+        var domainStr = "";
+        if(domain == null){
+            domainStr = "; domain=.ananti.kr";
+        }
+
+        var cookieValue = escape(value) + ((date==null) ? ";path=/" : (";path=/;expires=" + date)) + domainStr;
+
+        document.cookie = cookieName + "=" + cookieValue;
+    },
+    //cookie 삭제
+    deleteCookie: function(cookieName, domain){
+        var domainStr = "";
+        if(domain != undefined){
+            domainStr = "; domain=" + domain;
+        }
+
+        var expireDate = new Date();
+        expireDate.setDate(expireDate.getDate() - 1);
+        document.cookie = cookieName + "= " + ";path=/;expires=" + expireDate.toGMTString() + domainStr;
+    },
+
+    //cookie 반환
+    getCookie: function(cookieName){
+        cookieName = cookieName + '=';
+        var cookieData = document.cookie;
+        var start = cookieData.indexOf(cookieName);
+        var cookieValue = '';
+        if(start != -1){
+            start += cookieName.length;
+            var end = cookieData.indexOf(';', start);
+            if(end == -1)end = cookieData.length;
+            cookieValue = cookieData.substring(start, end);
+        }
+        return unescape(cookieValue);
+    }
+};
+
+/**
+ * 타이머
+ */
+let intervalId;
+let startTimer = function(duration, display){
+    clearInterval(intervalId);
+    let timer = duration, minutes, seconds;
+    intervalId = setInterval(function () {
+        minutes = parseInt(timer / 60, 10);
+        seconds = parseInt(timer % 60, 10);
+
+        minutes = minutes < 10 ? "0" + minutes : minutes;
+        seconds = seconds < 10 ? "0" + seconds : seconds;
+
+        display.textContent = minutes + ":" + seconds;
+
+        if (--timer < 0) {
+            timer = duration;
+        }
+    }, 1000);
+}
+
+Date.prototype.format = function (f) {
+    if (!this.valueOf()) return " ";
+    var weekKorName = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
+    var weekKorShortName = ["일", "월", "화", "수", "목", "금", "토"];
+    var weekEngName = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    var weekEngShortName = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    var d = this;
+    return f.replace(/(yyyy|yy|MM|dd|KS|KL|ES|EL|HH|hh|mm|ss|a\/p)/gi, function ($1) {
+        switch ($1) {
+            case "yyyy": return d.getFullYear(); // 년 (4자리)
+            case "yy": return (d.getFullYear() % 1000).zf(2); // 년 (2자리)
+            case "MM": return (d.getMonth() + 1).zf(2); // 월 (2자리)
+            case "dd": return d.getDate().zf(2); // 일 (2자리)
+            case "KS": return weekKorShortName[d.getDay()]; // 요일 (짧은 한글)
+            case "KL": return weekKorName[d.getDay()]; // 요일 (긴 한글)
+            case "ES": return weekEngShortName[d.getDay()]; // 요일 (짧은 영어)
+            case "EL": return weekEngName[d.getDay()]; // 요일 (긴 영어)
+            case "HH": return d.getHours().zf(2); // 시간 (24시간 기준, 2자리)
+            case "hh": return ((h = d.getHours() % 12) ? h : 12).zf(2); // 시간 (12시간 기준, 2자리)
+            case "mm": return d.getMinutes().zf(2); // 분 (2자리)
+            case "ss": return d.getSeconds().zf(2); // 초 (2자리
+            case "a/p": return d.getHours() < 12 ? "오전" : "오후"; // 오전/오후 구분
+            default: return $1;
+        }
+    });
+};
+
+const checkDevice = () => {
+    var varUA = navigator.userAgent.toLowerCase(); //userAgent 값 얻기
+    if ( varUA.indexOf('android') > -1) {
+        //안드로이드
+        return "and";
+    } else if ( varUA.indexOf("iphone") > -1||varUA.indexOf("ipad") > -1||varUA.indexOf("ipod") > -1 ) {
+        //IOS
+        return "ios";
+    } else {
+        //아이폰, 안드로이드 외
+        return "other";
+    }
+}
+
+const checkApp = () => {
+    var varUA = navigator.userAgent.toLowerCase(); //userAgent 값 얻기
+    var appCookie = cookie.getCookie("ANANTI-APP");
+    return varUA.indexOf('ananti-app') > -1 || appCookie !== "";
+}
+
+const checkMobile = () => {
+    var varUA = navigator.userAgent; //userAgent 값 얻기
+
+    if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(varUA)) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function getIsLogin(callback) {
+    $.ajax({
+        url: '/ko/islogin',
+        method: "get",
+        async: true,
+        beforeSend: function() {},
+        complete: function(result) {
+            callback(result.responseJSON.data);
+        },
+        error:function(request,status,error){
+            callback(false);
+        }
+    });
+}
+function getMemDcod(callback) {
+    $.ajax({
+        url: '/ko/memDcod',
+        method: "get",
+        async: true,
+        beforeSend: function() {},
+        complete: function(result) {
+            callback(result.responseJSON);
+        },
+        error:function(request,status,error){
+            callback(false);
+        }
+    });
+}
+function getIsUserCheck(callback) {
+    $.ajax({
+        url: '/ko/isUserCheck',
+        method: "get",
+        async: true,
+        beforeSend: function() {},
+        complete: function(result) {
+            callback(result.responseJSON.data);
+        },
+        error:function(request,status,error){
+            callback(false);
+        }
+    });
+}
+function backLocation() {
+    var referSite = document.referrer;
+    if(referSite.indexOf('login')>0){
+        location.href = '/'
+    }else{
+        history.back();
+    }
+}
+
+String.prototype.string = function (len) { var s = '', i = 0; while (i++ < len) { s += this; } return s; };
+String.prototype.zf = function (len) { return "0".string(len - this.length) + this; };
+Number.prototype.zf = function (len) { return this.toString().zf(len); };

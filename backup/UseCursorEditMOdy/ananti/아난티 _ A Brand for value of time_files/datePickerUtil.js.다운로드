@@ -1,0 +1,629 @@
+/**
+ * Common JS
+ * @author Park-pro
+ * @date 19.05.08
+ */
+function multiDateRangePickerInit(options) {
+    if (typeof (options) != "object") {
+        return false;
+    }
+
+    var target;
+    if (typeof (options.targetId) === "string") {
+        target = $("#" + options.targetId);
+    } else if (typeof (options.target) === "object") {
+        target = options.target;
+    } else {
+        return false;
+    }
+
+    var st_dt;
+    var en_dt;
+    if (typeof (options.startName) === "string") {
+        st_dt = $("input[name='" + options.startName + "']");
+    } else if (typeof (options.startTarget) === "object") {
+        st_dt = options.startTarget;
+    } else {
+        return false;
+    }
+
+    if (typeof (options.endName) === "string") {
+        en_dt = $("input[name='" + options.endName + "']");
+    } else if (typeof (options.endTarget) === "object") {
+        en_dt = options.endTarget;
+    } else {
+        return false;
+    }
+
+    var dt_type = "dateTime";
+    if (options.dateType && options.dateType === "date") {
+        dt_type = "date";
+    }
+
+    var yearCheck = false;
+    var now = moment();
+    if (typeof (options.year) === "string") {
+        yearCheck = true;
+        now = moment().set('year', options.year);
+    }
+
+    //Date range picker init
+    target.daterangepicker({
+        startDate: now,
+        endDate: now,
+        timePicker12Hour: false,
+        format: 'DD/MM/YYYY',
+        showDropdowns: true,
+        showWeekNumbers: false,
+        opens: 'right',
+        locale: {
+            applyLabel: 'Save',
+            cancelLabel: 'Reset',
+            fromLabel: 'From',
+            toLabel: 'To',
+            daysOfWeek: ['일', '월', '화', '수', '목', '금', '토'],
+            monthNames: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'],
+            firstDay: 1
+        },
+        autoUpdateInput: true,
+    });
+
+    // 함수 추가.
+    {
+        // 달력만 숨긴다.
+        if (!$.fn.hideDatePicker) {
+            $.fn.hideDatePicker = function () {
+                const picker = $(this).data("daterangepicker");
+                if (picker)
+                    picker.hide();
+            }
+        }
+
+        // 달력을 숨기고, input일경우 disabled 시킨다. cancel.daterangepicker 이벤트 호출시킨다.
+        if (!$.fn.disableDatePicker) {
+            $.fn.disableDatePicker = function (disabled = false) {
+                const picker = $(this).data("daterangepicker");
+                if (picker) {
+                    if (disabled) {
+                        picker.hide();
+                        $(this).trigger("cancel.daterangepicker");
+                        if ($(this).is("input"))
+                            $(this).attr("disabled", true);
+                    } else {
+                        if ($(this).is("input"))
+                            $(this).attr("disabled", false);
+                    }
+                }
+            }
+        }
+    }
+
+    /** ORIGINAL.
+     var setShowDateRange = function () {
+		var startDate = target.data('daterangepicker').startDate.format('DD/MM/YYYY');
+		var endDate = target.data('daterangepicker').endDate.format('DD/MM/YYYY');
+		var startDateTime = target.data('daterangepicker').startDate.format('YYYY-MM-DDT00:00:00');
+		var endDateTime = target.data('daterangepicker').endDate.format('YYYY-MM-DDT23:59:59');
+		target.val(startDate + " ~ " + endDate);
+		st_dt.val(startDateTime);
+		en_dt.val(endDateTime);
+	};
+     **/
+
+    //init search date start / end
+    /** ORIGINAL
+     if (st_dt.val().length > 0 && en_dt.val().length > 0) {
+		if (yearCheck) {
+			target.data("daterangepicker").setStartDate(moment(st_dt.val(), "DD/MM/YYYY").set('year', options.year));
+			target.data("daterangepicker").setEndDate(moment(en_dt.val(), "DD/MM/YYYY").set('year', options.year));
+		} else {
+			target.data("daterangepicker").setStartDate(moment(st_dt.val(), "DD/MM/YYYY"));
+			target.data("daterangepicker").setEndDate(moment(en_dt.val(), "DD/MM/YYYY"));
+		}
+
+		setShowDateRange();
+	} else {
+		target.val('');
+	}
+     **/
+
+    var setShowDateRange = function () {
+        var startDate = target.data('daterangepicker').startDate.format('YYYY-MM-DD');
+        var endDate = target.data('daterangepicker').endDate.format('YYYY-MM-DD');
+        var startDateTime = target.data('daterangepicker').startDate.format('YYYY-MM-DDT00:00:00');
+        var endDateTime = target.data('daterangepicker').endDate.format('YYYY-MM-DDT23:59:59');
+        target.val(startDate + " ~ " + endDate);
+        if (dt_type === "date") {
+            st_dt.val(startDate);
+            en_dt.val(endDate);
+        } else {
+            st_dt.val(startDateTime);
+            en_dt.val(endDateTime);
+        }
+    };
+
+    if (st_dt.val().length > 0 && en_dt.val().length > 0) {
+        target.data("daterangepicker").setStartDate(moment(st_dt.val(), "YYYY-MM-DD"));
+        target.data("daterangepicker").setEndDate(moment(en_dt.val(), "YYYY-MM-DD"));
+
+        setShowDateRange();
+    } else {
+        target.val('');
+    }
+
+    //date range picker apply event
+    target.on('apply.daterangepicker', function (e, picker) {
+        setShowDateRange();
+    });
+
+    //date range picker cancel event
+    target.on('cancel.daterangepicker', function (e, picker) {
+        $(this).val('');
+        st_dt.val('');
+        en_dt.val('');
+    });
+
+    target.on('hide.daterangepicker', function (e, picker) {
+        setShowDateRange();
+    });
+};
+
+/**
+ * @param options
+ * @returns {boolean}
+ *
+ * @example
+ * <input type="text" class="form-control eventDate" name="eventDate">
+ * <input type="hidden" class="form-control" name="startTarget">
+ *
+ * $(".eventDate").multiDateRangePickerInit({
+ *      target: $(".eventTarget"),
+ *      startTarget: $(".eventTarget").find($("input[name='startTarget']"))
+ * });
+ *
+ */
+function singleDateRangePickerWithTimeInit(options) {
+    if (typeof (options) != "object") {
+        return false;
+    }
+
+    var target;
+    if (typeof (options.targetId) === "string") {
+        target = $("#" + options.targetId);
+    } else if (typeof (options.target) === "object") {
+        target = options.target;
+    } else {
+        return false;
+    }
+    var st_dt;
+    if (typeof (options.startName) === "string") {
+        st_dt = $("input[name='" + options.startName + "']");
+    } else if (typeof (options.startTarget) === "object") {
+        st_dt = options.startTarget;
+    } else {
+        return false;
+    }
+    if (typeof (options.daterangepicker) == "object") {
+        if (options.daterangepicker.timePickerIncrement !== undefined) {
+            timeIncrement = options.daterangepicker.timePickerIncrement;
+        }
+        if (options.daterangepicker.format !== undefined) {
+            format = options.daterangepicker.format;
+        }
+    }
+
+    // 분 단위
+    let minuteIncrement = 1
+    if (typeof(options.secondIncrement) !== 'undefined' || options.secondIncrement !== null) {
+        minuteIncrement = options.minuteIncrement;
+    }
+
+    // 오늘 이전 선택
+    let minDate = null;
+    if (typeof(options.minDate) !== 'undefined' || options.minDate !== null) {
+        minDate = options.minDate;
+    }
+
+
+    const today = moment();
+    const mergedOpt = $.extend({
+        startDate: today,
+        endDate: today,
+        minYear: parseInt(today.format('YYYY')) - 5,
+        maxYear: parseInt(today.format('YYYY')) + 5,
+        timeIncrement: minuteIncrement,
+        format: 'YYYY-MM-DD HH:mm'
+    }, options);
+
+    target.daterangepicker({
+        startDate: mergedOpt.startDate,
+        endDate: mergedOpt.endDate,
+        minYear: mergedOpt.minYear,
+        maxYear: mergedOpt.maxYear,
+        minDate: minDate,
+        timePickerIncrement: mergedOpt.timeIncrement,
+        format: mergedOpt.format,
+        timePicker: true,
+        timePicker24Hour: true,
+        singleDatePicker: true,
+        showDropdowns: true,
+        autoUpdateInput: false,
+        opens: 'right',
+        locale: {
+            applyLabel: 'Apply',
+            cancelLabel: 'Clear',
+            fromLabel: 'From',
+            toLabel: 'To',
+            daysOfWeek: ['일', '월', '화', '수', '목', '금', '토'],
+            monthNames: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'],
+            firstDay: 1
+        }
+    });
+
+    var setShowDateRange = function () {
+        var targetStartDate = target.data('daterangepicker').startDate.format(mergedOpt.format);
+        var startDate = target.data('daterangepicker').startDate.format(mergedOpt.format);
+        target.val(targetStartDate);
+        st_dt.val(startDate);
+    };
+
+    //init search date start
+    if (st_dt.val().length > 0) {
+        target.data("daterangepicker").setStartDate(moment(st_dt.val(), mergedOpt.format));
+        setShowDateRange();
+    } else {
+        target.val('');
+    }
+
+    //date range picker apply event
+    target.on('apply.daterangepicker', function (e, picker) {
+        setShowDateRange();
+    });
+
+    //date range picker cancel event
+    target.on('cancel.daterangepicker', function (e, picker) {
+        $(this).val('');
+        st_dt.val('');
+    });
+
+    {
+        // 달력만 숨긴다.
+        if (!$.fn.hideDatePicker) {
+            $.fn.hideDatePicker = function () {
+                const picker = $(this).data("daterangepicker");
+                if (picker)
+                    picker.hide();
+            }
+        }
+
+        // 달력을 숨기고, input일경우 disabled 시킨다. cancel.daterangepicker 이벤트 호출시킨다.
+        if (!$.fn.disableDatePicker) {
+            $.fn.disableDatePicker = function (disabled = false) {
+                const picker = $(this).data("daterangepicker");
+                if (picker) {
+                    if (disabled) {
+                        picker.hide();
+                        $(this).trigger("cancel.daterangepicker");
+                        if ($(this).is("input"))
+                            $(this).attr("disabled", true);
+                    } else {
+                        if ($(this).is("input"))
+                            $(this).attr("disabled", false);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * @param options
+ * @returns {boolean}
+ * @author park-pro
+ *
+ * @example
+ * <input type="text" class="form-control eventDate" name="eventDate">
+ * <input type="hidden" class="form-control" name="startTarget">
+ *
+ * $(".eventDate").multiDateRangePickerInit({
+ *      target: $(".eventTarget"),
+ *      startTarget: $(".eventTarget").find($("input[name='startTarget']"))
+ * });
+ *
+ */
+function singleDateRangePickerInit(options) {
+    if (typeof (options) != "object") {
+        return false;
+    }
+
+    var target;
+    if (typeof (options.targetId) === "string") {
+        target = $("#" + options.targetId);
+    } else if (typeof (options.target) === "object") {
+        target = options.target;
+    } else {
+        return false;
+    }
+
+    var st_dt;
+    if (typeof (options.startName) === "string") {
+        st_dt = $("input[name='" + options.startName + "']");
+    } else if (typeof (options.startTarget) === "object") {
+        st_dt = options.startTarget;
+    } else {
+        return false;
+    }
+
+    var autoUpdateInput = true;
+    if (typeof (options.daterangepicker) == "object") {
+        if (options.daterangepicker.autoUpdateInput !== undefined) {
+            autoUpdateInput = options.daterangepicker.autoUpdateInput;
+        }
+
+    }
+
+    target.daterangepicker({
+        startDate: moment(),
+        endDate: moment(),
+        timePicker12Hour: false,
+        singleDatePicker: true,
+        format: 'YYYY-MM-DD',
+        showDropdowns: true,
+        showWeekNumbers: false,
+        opens: 'right',
+        cancelClass: 'btn-primary',
+        autoApply: true,
+        locale: {
+            // applyLabel: '선택',
+            // cancelLabel: 'Clear',
+            fromLabel: 'From',
+            toLabel: 'To',
+            daysOfWeek: ['일', '월', '화', '수', '목', '금', '토'],
+            monthNames: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'],
+            firstDay: 1
+        },
+        autoUpdateInput: autoUpdateInput
+    });
+
+    var setShowDateRange = function () {
+        var startDate = target.data('daterangepicker').startDate.format('YYYY-MM-DD');
+        target.val(startDate);
+        st_dt.val(startDate);
+    };
+
+    //init search date start
+    if (st_dt.val().length > 0) {
+        target.data("daterangepicker").setStartDate(moment(st_dt.val(), "YYYY-MM-DD"));
+        setShowDateRange();
+    } else {
+        target.val('');
+    }
+
+    //date range picker apply event
+    target.on('apply.daterangepicker', function (e, picker) {
+        setShowDateRange();
+    });
+
+    //date range picker cancel event
+    target.on('cancel.daterangepicker', function (e, picker) {
+        $(this).val('');
+        st_dt.val('');
+    });
+};
+
+
+
+function singleDateRangePickerInitWithMinDateMaxDate(options,minDate) {
+    if (typeof (options) != "object") {
+        return false;
+    }
+
+    var target;
+    if (typeof (options.targetId) === "string") {
+        target = $("#" + options.targetId);
+    } else if (typeof (options.target) === "object") {
+        target = options.target;
+    } else {
+        return false;
+    }
+
+    var st_dt;
+    if (typeof (options.startName) === "string") {
+        st_dt = $("input[name='" + options.startName + "']");
+    } else if (typeof (options.startTarget) === "object") {
+        st_dt = options.startTarget;
+    } else {
+        return false;
+    }
+
+    var autoUpdateInput = true;
+    if (typeof (options.daterangepicker) == "object") {
+        if (options.daterangepicker.autoUpdateInput !== undefined) {
+            autoUpdateInput = options.daterangepicker.autoUpdateInput;
+        }
+
+    }
+
+    target.daterangepicker({
+        startDate: moment(),
+        endDate: moment(),
+        timePicker12Hour: false,
+        singleDatePicker: true,
+        format: 'YYYY-MM-DD',
+        showDropdowns: true,
+        showWeekNumbers: false,
+        opens: 'right',
+        cancelClass: 'btn-primary',
+        autoApply: true,
+        locale: {
+            // applyLabel: '선택',
+            // cancelLabel: 'Clear',
+            fromLabel: 'From',
+            toLabel: 'To',
+            daysOfWeek: ['일', '월', '화', '수', '목', '금', '토'],
+            monthNames: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'],
+            firstDay: 1
+        },
+        minDate: new Date(minDate),
+        maxDate: new Date(),
+        autoUpdateInput: autoUpdateInput
+    });
+
+    var setShowDateRange = function () {
+        var startDate = target.data('daterangepicker').startDate.format('YYYY-MM-DD');
+        target.val(startDate);
+        st_dt.val(startDate);
+    };
+
+    //init search date start
+    if (st_dt.val().length > 0) {
+        target.data("daterangepicker").setStartDate(moment(st_dt.val(), "YYYY-MM-DD"));
+        setShowDateRange();
+    } else {
+        target.val('');
+    }
+
+    //date range picker apply event
+    target.on('apply.daterangepicker', function (e, picker) {
+        setShowDateRange();
+    });
+
+    //date range picker cancel event
+    target.on('cancel.daterangepicker', function (e, picker) {
+        $(this).val('');
+        st_dt.val('');
+        target.val('');
+    });
+};
+
+
+/*
+function timePickerInit(options) {
+    if (typeof(options) != "object") {
+        return false;
+    }
+
+    let target;
+    let endTime = null;
+
+    if (typeof(options.targetId) === "string") {
+        target = $("#" + options.targetId);
+    }
+    else if (typeof(options.target) === "object") {
+        target = options.target;
+    } else {
+        return false;
+    }
+
+    if (typeof(options.endTime) === "object") {
+        endTime = options.endTime;
+    }
+
+    if(endTime != null) {
+        target.datetimepicker({
+            format: 'LT',
+            showClose: true
+        }).on('dp.change', function(e) {
+            endTime.data("DateTimePicker").minDate(moment(target.val(), "hh:mm A"));
+        });
+    } else {
+        target.datetimepicker({
+            format: 'LT',
+            showClose: true
+        })
+    }
+};
+
+
+var iCheckInit = function () {
+    $('input[type="checkbox"], input[type="radio"]').iCheck({
+        checkboxClass: 'icheckbox_square-blue',
+        radioClass: 'iradio_flat-blue'
+    });
+};
+
+function pagination(page) {
+    var $frmSearch = $("form[name='frmSearch']");
+    $frmSearch.find("input[name='page']").val(page);
+    $frmSearch.submit();
+}
+
+function drawAttachments($params) {
+
+    if ($params === null || $params === undefined) return false;
+
+    var data = $params.rs_data;
+
+    var originalFileName = data.orgFilename,
+        s3FileName = data.savedFilename,
+        fullPath = data.fullPath,
+        fileType = data.fileType;
+
+    var downloadUri = '/attachment/download?savedFileName=' + encodeURI(s3FileName) + '&originalFileName=' + encodeURI(originalFileName);
+
+    var tags = "";
+    if (fileType === 'Image') {
+        tags = "<a href='" + downloadUri + "'> <img src='" + fullPath + "'></a>";
+    } else {
+        tags = "<a href='" + downloadUri + "'>" + originalFileName + "</a>";
+    }
+
+    return tags;
+}
+
+var onlyNumberKeyEvent = function (options) {
+    if (typeof (options) !== 'object') return false;
+
+    var option = {};
+    option.className = "only-number";
+    option.formId = "";
+
+    $.extend(options, option);
+
+    var target = "";
+    if (option.formId === "") {
+        target = $("." + option.className);
+    } else {
+        target = $("." + option.className, $("#" + option.formId));
+    }
+
+    target.each(function () {
+        $(this).unbind("keydown").keydown(function (e) {
+            // Allow: backspace, delete, tab, escape, enter, and, -, .
+            if ($.inArray(e.keyCode, [46, 8, 9, 27, 13, 110, 189, 190]) !== -1 ||
+                // Allow: Ctrl+A
+                (e.keyCode == 65 && e.ctrlKey === true) ||
+                // Allow: home, end, left, right
+                (e.keyCode >= 35 && e.keyCode <= 39)) {
+                return;
+            }
+            // Ensure that it is a number and stop the keypress
+            if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+                e.preventDefault();
+            }
+        });
+    });
+
+    target.keyup(function (e) {
+        var inputValue = $(this).val();
+        if (e.keyCode == 8) return;
+        $(this).val(onlyNumber(inputValue));
+    });
+};
+
+var onlyNumber = function (str) {
+    var len = str.length;
+    var result = "";
+
+    for (var i = 0; i < len; i++) {
+        // ORIGINAL.
+        //if ((str.charAt(i) >= "0") && (str.charAt(i) <= "9") || str.charAt(i) === "." || str.charAt(i) === "-") {
+        if ((str.charAt(i) >= "0") && (str.charAt(i) <= "9")) {
+            result += str.charAt(i);
+        }
+    }
+
+    return result;
+};
+
+*/
